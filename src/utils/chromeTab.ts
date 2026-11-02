@@ -3,21 +3,40 @@
 export async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
   if (typeof chrome === 'undefined' || !chrome.tabs) return null;
   return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    // 1. Check lastFocusedWindow first (active browser tab when sidepanel is focused)
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
       void chrome.runtime.lastError;
-      resolve(tabs?.[0] || null);
+      if (tabs && tabs.length > 0 && tabs[0]?.id) {
+        resolve(tabs[0]);
+        return;
+      }
+      // 2. Fallback to currentWindow
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs2) => {
+        void chrome.runtime.lastError;
+        if (tabs2 && tabs2.length > 0 && tabs2[0]?.id) {
+          resolve(tabs2[0]);
+          return;
+        }
+        // 3. Fallback to any active tab
+        chrome.tabs.query({ active: true }, (tabs3) => {
+          void chrome.runtime.lastError;
+          resolve(tabs3?.[0] || null);
+        });
+      });
     });
   });
 }
 
 export function isRestrictedUrl(url?: string): boolean {
-  if (!url) return true;
+  if (!url) return false;
+  const lower = url.toLowerCase();
   return (
-    url.startsWith('chrome://') ||
-    url.startsWith('chrome-extension://') ||
-    url.startsWith('edge://') ||
-    url.startsWith('about:') ||
-    url.startsWith('view-source:')
+    lower.startsWith('chrome://') ||
+    lower.startsWith('chrome-extension://') ||
+    lower.startsWith('edge://') ||
+    lower.startsWith('about:') ||
+    lower.startsWith('view-source:') ||
+    lower.startsWith('devtools://')
   );
 }
 

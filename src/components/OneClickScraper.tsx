@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Scan,
   CheckCircle,
@@ -28,6 +28,12 @@ export const OneClickScraper: React.FC = () => {
   } = useScraperStore();
 
   const [selectedSchemaIndex, setSelectedSchemaIndex] = useState<number>(0);
+
+  useEffect(() => {
+    if (detectedSchemas.length === 0 && !isScanning) {
+      scanActiveTab();
+    }
+  }, []);
 
   const activeSchema: CandidateSchema | undefined = detectedSchemas[selectedSchemaIndex] || detectedSchemas[0];
 

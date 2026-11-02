@@ -15,6 +15,7 @@ export interface VisualSelectorConfig {
     cssSelector: string;
     exactSelector: string;
     repeatedSelector: string;
+    repeatedMatchCount?: number;
     xpath: string;
     text: string;
     html: string;
@@ -28,6 +29,7 @@ export interface VisualSelectorConfig {
 export class VisualElementSelector {
   private highlightOverlay: HTMLDivElement | null = null;
   private infoBadge: HTMLDivElement | null = null;
+  private floatingBanner: HTMLDivElement | null = null;
   private matchesOverlay: HTMLDivElement[] = [];
   private currentHoverTarget: HTMLElement | null = null;
   private isActive: boolean = false;
@@ -43,6 +45,47 @@ export class VisualElementSelector {
   activate(): void {
     if (this.isActive) return;
     this.isActive = true;
+
+    // Change cursor to indicate active selection mode
+    try {
+      document.body.style.cursor = 'crosshair';
+    } catch {}
+
+    // Create top floating indicator banner
+    this.floatingBanner = document.createElement('div');
+    this.floatingBanner.id = 'hashira-active-banner';
+    this.floatingBanner.style.position = 'fixed';
+    this.floatingBanner.style.top = '12px';
+    this.floatingBanner.style.left = '50%';
+    this.floatingBanner.style.transform = 'translateX(-50%)';
+    this.floatingBanner.style.zIndex = '2147483647';
+    this.floatingBanner.style.backgroundColor = '#042f2e';
+    this.floatingBanner.style.color = '#5eead4';
+    this.floatingBanner.style.border = '2px solid #14b8a6';
+    this.floatingBanner.style.borderRadius = '30px';
+    this.floatingBanner.style.padding = '8px 18px';
+    this.floatingBanner.style.fontSize = '13px';
+    this.floatingBanner.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+    this.floatingBanner.style.boxShadow = '0 6px 20px rgba(0,0,0,0.5)';
+    this.floatingBanner.style.display = 'flex';
+    this.floatingBanner.style.alignItems = 'center';
+    this.floatingBanner.style.gap = '12px';
+    this.floatingBanner.style.userSelect = 'none';
+
+    this.floatingBanner.innerHTML = `
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2dd4bf;box-shadow:0 0 8px #2dd4bf;"></span>
+      <span style="font-weight:700;letter-spacing:-0.2px;">🎯 Hashira Selector Active — Click any item on this page</span>
+      <button id="hashira-banner-exit" style="background:#134e4a;color:#ccfbf1;border:1px solid #14b8a6;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:bold;cursor:pointer;">ESC / Close</button>
+    `;
+    document.body.appendChild(this.floatingBanner);
+
+    const closeBtn = this.floatingBanner.querySelector('#hashira-banner-exit');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.deactivate();
+      });
+    }
 
     // Create highlight overlay
     this.highlightOverlay = document.createElement('div');
@@ -81,6 +124,15 @@ export class VisualElementSelector {
   deactivate(): void {
     if (!this.isActive) return;
     this.isActive = false;
+
+    try {
+      document.body.style.cursor = '';
+    } catch {}
+
+    if (this.floatingBanner) {
+      this.floatingBanner.remove();
+      this.floatingBanner = null;
+    }
 
     if (this.highlightOverlay) {
       this.highlightOverlay.remove();
@@ -151,6 +203,7 @@ export class VisualElementSelector {
       cssSelector,
       exactSelector: resilient.exactSelector,
       repeatedSelector: resilient.repeatedSelector,
+      repeatedMatchCount: resilient.repeatedMatchCount,
       xpath,
       text: LearningEngine.getElementValue(target),
       html: target.outerHTML,

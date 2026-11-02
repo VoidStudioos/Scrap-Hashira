@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table as TableIcon,
   Download,
@@ -14,6 +14,12 @@ export const TableExtractor: React.FC = () => {
   const { detectedTables, scanActiveTab, isScanning } = useScraperStore();
   const [selectedTableIdx, setSelectedTableIdx] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  useEffect(() => {
+    if (detectedTables.length === 0 && !isScanning) {
+      scanActiveTab();
+    }
+  }, []);
 
   const activeTable = detectedTables[selectedTableIdx] || detectedTables[0];
 

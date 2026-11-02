@@ -78,8 +78,24 @@ export class LearningEngine {
     const tag = el.tagName.toLowerCase();
     const doc = el.ownerDocument || document;
 
-    // Pattern A: ID with number prefix/suffix (e.g. imgEgrp2, product_1, item-12, row3)
+    // Pattern A: ID with number prefix/suffix/words (e.g. imgEgrp2, product_1, item-12, row3, ctl00_imgEgrp2)
     if (el.id) {
+      // 1. Check for word tokens inside ID (matches ASP.NET controls, repeaters, etc.)
+      const words = el.id.match(/[a-zA-Z_\-]{3,}/g);
+      if (words) {
+        for (const w of words) {
+          if (!w.match(/^(ctl|div|span|lbl|txt|btn)$/i)) {
+            const candidateStar = `${tag}[id*="${w}"]`;
+            try {
+              const matches = doc.querySelectorAll(candidateStar);
+              if (matches.length > 1) {
+                return { selector: candidateStar, count: matches.length };
+              }
+            } catch {}
+          }
+        }
+      }
+
       const idPrefixMatch = el.id.match(/^([a-zA-Z_\-]+?)\d+/);
       if (idPrefixMatch && idPrefixMatch[1] && idPrefixMatch[1].length >= 2) {
         const candidate = `${tag}[id^="${idPrefixMatch[1]}"]`;

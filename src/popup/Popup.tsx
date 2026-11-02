@@ -94,8 +94,8 @@ export const Popup: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
-              setVisualSelectorActive(!visualSelectorActive);
+            onClick={async () => {
+              await setVisualSelectorActive(!visualSelectorActive);
               window.close();
             }}
             className={`w-full flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold border transition ${
