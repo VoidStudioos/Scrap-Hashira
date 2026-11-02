@@ -11,12 +11,16 @@ import {
   Sparkles,
   Download,
   FileSpreadsheet,
+  FileText,
+  Image as ImageIcon,
+  ExternalLink,
 } from 'lucide-react';
 import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
 import { StorageService } from '../storage/storageService';
 import { ExportManager } from '../exports/exportManager';
-import type { SelectorRule } from '../types';
+import { ImageDownloader } from '../engines/images/imageDownloader';
+import type { SelectorRule, ExtractedImage } from '../types';
 
 export const VisualSelectorPanel: React.FC = () => {
   const {
@@ -29,11 +33,11 @@ export const VisualSelectorPanel: React.FC = () => {
   } = useScraperStore();
 
   const [fields, setFields] = useState<SelectorRule[]>([]);
-  const [currentFieldName, setCurrentFieldName] = useState<string>('product_name');
+  const [currentFieldName, setCurrentFieldName] = useState<string>('Item');
   const [activeCssSelector, setActiveCssSelector] = useState<string>('');
-  const [currentMatchCount, setCurrentMatchCount] = useState<number>(1);
-  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [currentMatchCount, setCurrentMatchCount] = useState<number>(0);
   const [extractedPreview, setExtractedPreview] = useState<any[]>([]);
+  const [isDownloadingImages, setIsDownloadingImages] = useState<boolean>(false);
 
   useEffect(() => {
     const listener = (message: any) => {
@@ -49,6 +53,11 @@ export const VisualSelectorPanel: React.FC = () => {
 
         setActiveCssSelector(initialSelector);
         setCurrentMatchCount(payload.matchCount || 1);
+
+        // Instantly display all extracted items in the table!
+        if (payload.allExtractedItems && payload.allExtractedItems.length > 0) {
+          setExtractedPreview(payload.allExtractedItems);
+        }
       } else if (message.action === 'VISUAL_SELECTOR_CLOSED') {
         setVisualSelectorActive(false);
       }
@@ -73,8 +82,11 @@ export const VisualSelectorPanel: React.FC = () => {
             tabs[0].id,
             { action: 'UPDATE_SELECTOR_HIGHLIGHT', payload: { selector: newSelector } },
             (res) => {
-              if (res?.success && typeof res.count === 'number') {
-                setCurrentMatchCount(res.count);
+              if (res?.success) {
+                setCurrentMatchCount(res.count || 0);
+                if (res.items) {
+                  setExtractedPreview(res.items);
+                }
               }
             }
           );
@@ -93,94 +105,62 @@ export const VisualSelectorPanel: React.FC = () => {
     updateSelectorAndHighlight(targetSelector);
   };
 
-  const handleAddFieldFromSelection = () => {
-    if (!visualSelectorData || !activeCssSelector) return;
-
-    const newRule: SelectorRule = {
-      field: currentFieldName || `field_${fields.length + 1}`,
-      cssSelector: activeCssSelector,
-      xpathFallback: visualSelectorData.xpath,
-      attribute: 'text',
-      confidence: 0.95,
-      isCustom: true,
-    };
-
-    setFields([...fields, newRule]);
-    setCurrentFieldName('');
-  };
-
-  const handleInstantExtract = () => {
-    if (!activeCssSelector) return;
-    setIsExtracting(true);
-
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]?.id) {
-          setIsExtracting(false);
-          return;
-        }
-
-        chrome.tabs.sendMessage(
-          tabs[0].id,
-          {
-            action: 'EXTRACT_BY_RULES',
-            payload: {
-              recordSelector: activeCssSelector,
-              fieldSelectors: [
-                { field: currentFieldName || 'item', cssSelector: '', attribute: 'text' },
-              ],
-              jobId: 'visual_job',
-            },
-          },
-          (res) => {
-            setIsExtracting(false);
-            if (res?.success && res.data) {
-              setExtractedPreview(res.data);
-            }
-          }
-        );
-      });
-    }
-  };
-
   const handleExportExtractedExcel = () => {
     if (!extractedPreview.length) return;
     const rows = extractedPreview.map((item, idx) => ({
-      Index: idx + 1,
-      Value: item.title || item.data?.item || '',
-      Source_URL: item.sourceUrl,
+      '#': idx + 1,
+      [currentFieldName || 'Extracted_Data']: item.value || '',
+      Image_URL: item.imageUrl || '',
+      Link_URL: item.linkUrl || '',
     }));
-    const buf = ExportManager.toXlsx(rows, 'Visual Extraction');
+    const buf = ExportManager.toXlsx(rows, 'Extracted Data');
     const blob = new Blob([buf], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
-    ExportManager.triggerFileDownload(blob, `hashira-visual-${Date.now()}.xlsx`);
+    ExportManager.triggerFileDownload(blob, `hashira-extracted-${Date.now()}.xlsx`);
   };
 
-  const handleSaveAsProfile = async () => {
-    if (fields.length === 0) {
-      alert('Please select and add at least one field before saving.');
+  const handleExportExtractedCsv = () => {
+    if (!extractedPreview.length) return;
+    const rows = extractedPreview.map((item, idx) => ({
+      Index: idx + 1,
+      [currentFieldName || 'Extracted_Data']: item.value || '',
+      Image_URL: item.imageUrl || '',
+      Link_URL: item.linkUrl || '',
+    }));
+    const csvStr = ExportManager.toCsv(rows);
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    ExportManager.triggerFileDownload(blob, `hashira-extracted-${Date.now()}.csv`);
+  };
+
+  const handleDownloadAllImages = async () => {
+    const imagesToDownload = extractedPreview
+      .filter((i) => i.imageUrl || (i.isImage && i.value))
+      .map((i, idx) => {
+        const url = i.imageUrl || i.value;
+        return {
+          jobId: 'visual_job',
+          sourceUrl: url,
+          resolvedUrl: url,
+          fileName: `image_${String(idx + 1).padStart(3, '0')}.jpg`,
+          classification: 'product',
+          confidence: 0.9,
+          status: 'discovered',
+          downloadAttempts: 0,
+        } as ExtractedImage;
+      });
+
+    if (imagesToDownload.length === 0) {
+      alert('No image URLs found in the selected elements.');
       return;
     }
 
-    const domain = window.location.hostname || 'example.com';
-    await StorageService.saveProfile({
-      domain,
-      name: `Visual Profile - ${domain}`,
-      pageType: 'catalog',
-      urlPattern: '.*',
-      recordSelector: activeCssSelector || fields[0].cssSelector,
-      fieldSelectors: fields,
-      confidenceScore: 0.95,
-      successCount: 1,
-      failureCount: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    await loadProfiles();
-    alert('Site profile saved to Smart Learning!');
-    setView('learning');
+    setIsDownloadingImages(true);
+    const downloader = new ImageDownloader(4);
+    downloader.enqueue(imagesToDownload);
+    await downloader.start();
+    setIsDownloadingImages(false);
+    alert(`Downloaded ${imagesToDownload.length} images to your downloads folder.`);
   };
 
   return (
@@ -193,7 +173,7 @@ export const VisualSelectorPanel: React.FC = () => {
             <span>{I18nManager.t('visualSelector')}</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Click elements on live web pages to generate resilient CSS/XPath selectors and extract structured columns.
+            Click any element on the webpage. Hashira automatically detects and extracts all repeated matching items in real time.
           </p>
         </div>
 
@@ -214,20 +194,20 @@ export const VisualSelectorPanel: React.FC = () => {
       {visualSelectorData ? (
         <div className="bg-slate-800/70 border border-emerald-500/50 rounded-xl p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-3">
-            <span className="text-xs font-semibold text-emerald-400 flex items-center space-x-1.5 rtl:space-x-reverse">
-              <CheckCircle className="w-4 h-4" />
-              <span>
-                Element Selected ({currentMatchCount} matching elements found on page)
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-xs font-bold text-emerald-400">
+                {currentMatchCount} matching elements found on page
               </span>
-            </span>
+            </div>
 
             {/* Scope Toggle: All Similar vs Single Item */}
             <div className="flex items-center space-x-1 rtl:space-x-reverse bg-slate-900 p-1 rounded-lg border border-slate-700">
               <button
                 onClick={() => handleSelectMode('repeated')}
-                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                className={`px-3 py-1 rounded text-xs font-bold transition ${
                   activeCssSelector !== visualSelectorData.exactSelector
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-emerald-500 text-slate-950 shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -235,9 +215,9 @@ export const VisualSelectorPanel: React.FC = () => {
               </button>
               <button
                 onClick={() => handleSelectMode('exact')}
-                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                className={`px-3 py-1 rounded text-xs font-semibold transition ${
                   activeCssSelector === visualSelectorData.exactSelector
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-emerald-500 text-slate-950 shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -251,10 +231,10 @@ export const VisualSelectorPanel: React.FC = () => {
             <div className="flex justify-between items-center text-xs">
               <label className="text-slate-300 font-medium flex items-center space-x-1 rtl:space-x-reverse">
                 <Code className="w-3.5 h-3.5 text-emerald-400" />
-                <span>CSS Selector (Editable):</span>
+                <span>CSS Selector:</span>
               </label>
-              <span className="text-emerald-400 font-mono text-[11px]">
-                Matches {currentMatchCount} elements
+              <span className="text-slate-400 text-[11px]">
+                You can edit this selector directly to change the matched items.
               </span>
             </div>
             <input
@@ -265,132 +245,142 @@ export const VisualSelectorPanel: React.FC = () => {
             />
           </div>
 
-          <div>
-            <span className="text-slate-400 text-xs block mb-1">Text Preview:</span>
-            <div className="bg-slate-900 border border-slate-700 p-2.5 rounded text-xs text-slate-200 truncate">
-              "{visualSelectorData.text?.substring(0, 150) || visualSelectorData.sampleValues?.[0] || 'No text content'}"
-            </div>
-          </div>
-
-          {/* Actions Bar */}
+          {/* Quick Actions & Column Name */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <span className="text-xs text-slate-400">Column Name:</span>
               <input
                 type="text"
-                placeholder="Column name (e.g. title, price)..."
                 value={currentFieldName}
                 onChange={(e) => setCurrentFieldName(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                placeholder="Column Name"
+                className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
               />
-              <button
-                onClick={handleAddFieldFromSelection}
-                className="flex items-center space-x-1 rtl:space-x-reverse bg-slate-700 hover:bg-slate-600 text-white font-medium px-3 py-1.5 rounded text-xs transition"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Column</span>
-              </button>
             </div>
 
-            <button
-              onClick={handleInstantExtract}
-              disabled={isExtracting}
-              className="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs shadow-md transition disabled:opacity-50"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>
-                {isExtracting
-                  ? 'Extracting...'
-                  : `Extract All ${currentMatchCount} Items Now`}
-              </span>
-            </button>
+            {/* Direct Export Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleExportExtractedExcel}
+                disabled={extractedPreview.length === 0}
+                className="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3.5 py-1.5 rounded-lg text-xs transition shadow disabled:opacity-50"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel ({extractedPreview.length})</span>
+              </button>
+
+              <button
+                onClick={handleExportExtractedCsv}
+                disabled={extractedPreview.length === 0}
+                className="flex items-center space-x-1.5 rtl:space-x-reverse bg-slate-700 hover:bg-slate-600 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export CSV</span>
+              </button>
+
+              {extractedPreview.some((i) => i.isImage || i.imageUrl) && (
+                <button
+                  onClick={handleDownloadAllImages}
+                  disabled={isDownloadingImages}
+                  className="flex items-center space-x-1.5 rtl:space-x-reverse bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition shadow disabled:opacity-50"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span>{isDownloadingImages ? 'Downloading...' : 'Download Images'}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ) : (
-        <div className="bg-slate-800/40 border border-dashed border-slate-700 rounded-xl p-8 text-center text-xs text-slate-400 space-y-2">
-          <Eye className="w-8 h-8 text-slate-500 mx-auto" />
-          <p>
-            Click "Activate Visual Selector", then hover and click any element on the page. Hashira automatically generalizes selectors to capture all matching items in the list!
+        <div className="bg-slate-800/40 border border-dashed border-slate-700 rounded-xl p-10 text-center text-xs text-slate-400 space-y-3">
+          <Eye className="w-10 h-10 text-emerald-500/50 mx-auto" />
+          <h3 className="text-sm font-semibold text-slate-200">Interactive Visual Selector</h3>
+          <p className="max-w-md mx-auto leading-relaxed">
+            1. Click <strong>"Activate Visual Selector"</strong> above.<br />
+            2. Click any element on your webpage (photo, title, price, or link).<br />
+            3. Hashira will instantly highlight and extract <strong>all matching items in that list</strong> and show them in a live table below!
           </p>
         </div>
       )}
 
-      {/* Instant Extracted Results Table */}
+      {/* Live Extracted Results Table (Immediately visible!) */}
       {extractedPreview.length > 0 && (
         <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-            <h3 className="text-xs font-semibold text-white flex items-center space-x-1.5 rtl:space-x-reverse">
+            <h3 className="text-xs font-bold text-white flex items-center space-x-2 rtl:space-x-reverse">
               <Layers className="w-4 h-4 text-emerald-400" />
-              <span>Extracted Results ({extractedPreview.length} items)</span>
+              <span>Extracted Items Table ({extractedPreview.length} rows)</span>
             </h3>
 
-            <button
-              onClick={handleExportExtractedExcel}
-              className="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition shadow"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export to Excel (.xlsx)</span>
-            </button>
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <button
+                onClick={handleExportExtractedExcel}
+                className="flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 text-xs font-semibold"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Save Excel (.xlsx)</span>
+              </button>
+            </div>
           </div>
 
-          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded-lg">
+          <div className="max-h-80 overflow-y-auto border border-slate-700 rounded-lg">
             <table className="w-full text-xs text-left rtl:text-right text-slate-300">
-              <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
+              <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0 border-b border-slate-700">
                 <tr>
-                  <th className="px-3 py-2 w-12">#</th>
-                  <th className="px-3 py-2">Extracted Value</th>
+                  <th className="px-3 py-2 w-12 text-center">#</th>
+                  {extractedPreview.some((i) => i.isImage || i.imageUrl) && (
+                    <th className="px-3 py-2 w-20">Preview</th>
+                  )}
+                  <th className="px-3 py-2">{currentFieldName || 'Extracted Value'}</th>
+                  {extractedPreview.some((i) => i.linkUrl) && (
+                    <th className="px-3 py-2">Link</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {extractedPreview.map((item, idx) => (
                   <tr key={idx} className="hover:bg-slate-700/20">
-                    <td className="px-3 py-2 text-slate-500 font-mono">{idx + 1}</td>
-                    <td className="px-3 py-2 text-white">
-                      {item.title || item.data?.item || '-'}
+                    <td className="px-3 py-2 text-slate-500 font-mono text-center">{idx + 1}</td>
+                    {extractedPreview.some((i) => i.isImage || i.imageUrl) && (
+                      <td className="px-3 py-1">
+                        {item.imageUrl || (item.isImage && item.value) ? (
+                          <img
+                            src={item.imageUrl || item.value}
+                            alt=""
+                            className="w-10 h-10 object-cover rounded border border-slate-700 bg-slate-900"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-white font-medium break-all">
+                      {item.value || '-'}
                     </td>
+                    {extractedPreview.some((i) => i.linkUrl) && (
+                      <td className="px-3 py-2 text-slate-400 truncate max-w-[200px]">
+                        {item.linkUrl ? (
+                          <a
+                            href={item.linkUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-teal-400 hover:underline flex items-center space-x-1 rtl:space-x-reverse"
+                          >
+                            <span className="truncate">{item.linkUrl}</span>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* Configured Fields List */}
-      {fields.length > 0 && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-            <h3 className="text-xs font-semibold text-slate-200 flex items-center space-x-1.5 rtl:space-x-reverse">
-              <Code className="w-4 h-4 text-emerald-400" />
-              <span>Configured Fields ({fields.length})</span>
-            </h3>
-
-            <button
-              onClick={handleSaveAsProfile}
-              className="flex items-center space-x-1.5 rtl:space-x-reverse bg-purple-600 hover:bg-purple-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{I18nManager.t('saveProfile')}</span>
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {fields.map((f, i) => (
-              <div
-                key={i}
-                className="bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg flex items-center justify-between text-xs font-mono"
-              >
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                  <span className="text-emerald-400 font-bold">{f.field}</span>
-                  <span className="text-slate-400 font-normal">→ {f.cssSelector}</span>
-                </div>
-                <button
-                  onClick={() => setFields(fields.filter((_, idx) => idx !== i))}
-                  className="text-rose-400 hover:text-rose-300"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       )}

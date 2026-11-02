@@ -60,8 +60,8 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 
       case 'UPDATE_SELECTOR_HIGHLIGHT': {
         if (activeSelector && payload?.selector) {
-          const count = activeSelector.highlightBySelector(payload.selector);
-          sendResponse({ success: true, count });
+          const res = activeSelector.highlightBySelector(payload.selector);
+          sendResponse({ success: true, count: res.count, items: res.items });
           return true;
         }
         sendResponse({ success: false });

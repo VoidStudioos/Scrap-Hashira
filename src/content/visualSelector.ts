@@ -1,6 +1,15 @@
 // Interactive Visual Element Selector Overlay
 import { LearningEngine } from '../engines/learning/learningEngine';
 
+export interface ExtractedVisualItem {
+  index: number;
+  value: string;
+  tag: string;
+  isImage: boolean;
+  imageUrl?: string;
+  linkUrl?: string;
+}
+
 export interface VisualSelectorConfig {
   onElementSelected: (data: {
     cssSelector: string;
@@ -11,6 +20,7 @@ export interface VisualSelectorConfig {
     html: string;
     matchCount: number;
     sampleValues: string[];
+    allExtractedItems: ExtractedVisualItem[];
   }) => void;
   onClosed: () => void;
 }
@@ -135,31 +145,49 @@ export class VisualElementSelector {
 
     this.highlightAllMatches(matchedElements);
 
-    const sampleValues = matchedElements.slice(0, 5).map((el) => {
-      if (el instanceof HTMLImageElement) return el.src || el.getAttribute('data-src') || '';
-      return el.textContent?.trim() || '';
-    });
+    const allExtractedItems = this.extractItemsFromElements(matchedElements);
 
     this.config.onElementSelected({
       cssSelector,
       exactSelector: resilient.exactSelector,
       repeatedSelector: resilient.repeatedSelector,
       xpath,
-      text: target.textContent?.trim() || (target instanceof HTMLImageElement ? target.src : ''),
+      text: LearningEngine.getElementValue(target),
       html: target.outerHTML,
       matchCount: matchedElements.length,
-      sampleValues,
+      sampleValues: allExtractedItems.slice(0, 5).map((i) => i.value),
+      allExtractedItems,
     });
   }
 
-  highlightBySelector(selector: string): number {
+  highlightBySelector(selector: string): { count: number; items: ExtractedVisualItem[] } {
     try {
       const matched = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
       this.highlightAllMatches(matched);
-      return matched.length;
+      const items = this.extractItemsFromElements(matched);
+      return { count: matched.length, items };
     } catch {
-      return 0;
+      return { count: 0, items: [] };
     }
+  }
+
+  private extractItemsFromElements(elements: HTMLElement[]): ExtractedVisualItem[] {
+    return elements.map((el, idx) => {
+      const tag = el.tagName.toLowerCase();
+      const isImg = tag === 'img' || Boolean(el.querySelector('img'));
+      const val = LearningEngine.getElementValue(el);
+      const imgEl = tag === 'img' ? (el as HTMLImageElement) : el.querySelector('img');
+      const anchorEl = tag === 'a' ? (el as HTMLAnchorElement) : el.querySelector('a');
+
+      return {
+        index: idx + 1,
+        value: val,
+        tag,
+        isImage: isImg,
+        imageUrl: imgEl ? (imgEl.src || imgEl.getAttribute('data-src') || '') : undefined,
+        linkUrl: anchorEl ? (anchorEl.href || anchorEl.getAttribute('href') || '') : undefined,
+      };
+    });
   }
 
   private highlightAllMatches(elements: HTMLElement[]): void {

@@ -161,6 +161,11 @@ export class LearningEngine {
    * Resolves a field using CSS first, then XPath fallback, then semantic attributes
    */
   static extractFieldValue(root: Element, rule: SelectorRule): string {
+    // If no selector or self, extract directly from root
+    if (!rule.cssSelector || rule.cssSelector === 'self' || rule.cssSelector === '.') {
+      return this.getElementValue(root, rule.attribute);
+    }
+
     // 1. Try CSS Selector
     if (rule.cssSelector) {
       try {
@@ -204,26 +209,56 @@ export class LearningEngine {
     return '';
   }
 
-  private static getElementValue(el: Element, attribute?: string): string {
-    if (!attribute || attribute === 'text') {
-      return el.textContent?.trim() || '';
+  static getElementValue(el: Element, attribute?: string): string {
+    if (!el) return '';
+
+    // If element is an Image
+    if (el instanceof HTMLImageElement || el.tagName.toLowerCase() === 'img') {
+      return (
+        el.getAttribute('src') ||
+        el.getAttribute('data-src') ||
+        el.getAttribute('data-original') ||
+        el.getAttribute('data-lazy-src') ||
+        (el as any).currentSrc ||
+        el.getAttribute('alt') ||
+        ''
+      );
     }
+
     if (attribute === 'html') {
       return el.innerHTML?.trim() || '';
     }
+
     if (attribute === 'src') {
       return (
         el.getAttribute('src') ||
         el.getAttribute('data-src') ||
         el.getAttribute('data-original') ||
         el.getAttribute('data-lazy-src') ||
+        (el as any).currentSrc ||
         ''
       );
     }
+
     if (attribute === 'href') {
-      return el.getAttribute('href') || '';
+      return el.getAttribute('href') || (el as any).href || '';
     }
-    return el.getAttribute(attribute) || el.textContent?.trim() || '';
+
+    // Text extraction
+    const text = el.textContent?.trim();
+    if (text) return text;
+
+    // Fallbacks if textContent is empty (e.g. icon or image inside link)
+    const imgInside = el.querySelector('img');
+    if (imgInside) {
+      return this.getElementValue(imgInside, 'src');
+    }
+
+    if (el instanceof HTMLAnchorElement || el.tagName.toLowerCase() === 'a') {
+      return el.getAttribute('href') || (el as any).href || '';
+    }
+
+    return el.getAttribute(attribute || '') || '';
   }
 
   /**
