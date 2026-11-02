@@ -49,11 +49,49 @@ export class AutoDetector {
 
     // Stage 3: Table detection (Standard and dynamic tables)
     const tables = this.detectTables(doc, currentUrl);
+    tables.forEach((t, idx) => {
+      if (t.rows.length > 0) {
+        const fields: DetectedField[] = t.headers.map((h, colIdx) => ({
+          name: h || `Column_${colIdx + 1}`,
+          cssSelector: `tr > td:nth-child(${colIdx + 1})`,
+          xpathFallback: `.//td[${colIdx + 1}]`,
+          attribute: 'text',
+          sampleValue: String(t.rows[0]?.[colIdx] || ''),
+          confidence: 0.95,
+        }));
 
-    // Stage 4: Pagination detection
+        schemas.push({
+          type: 'table',
+          title: t.title || `Table #${idx + 1} (${t.rows.length} rows)`,
+          recordSelector: 'table tr',
+          confidence: 0.92,
+          sampleCount: t.rows.length,
+          fields,
+          previewRecords: t.rows.slice(0, 5).map((row) => {
+            const r: Record<string, any> = {};
+            t.headers.forEach((h, cIdx) => {
+              r[h || `Column_${cIdx + 1}`] = row[cIdx] || '';
+            });
+            return r;
+          }),
+        });
+      }
+    });
+
+    // Stage 4: Single Item / Product Detail Page / Article Fallback
+    if (schemas.length === 0) {
+      const detailSchema = this.detectSingleDetailPage(doc);
+      if (detailSchema) schemas.push(detailSchema);
+    }
+
+    // Stage 5: Prominent Links Fallback
+    if (schemas.length === 0) {
+      const linksSchema = this.detectLinksCatalog(doc);
+      if (linksSchema) schemas.push(linksSchema);
+    }
+
+    // Stage 6: Pagination detection
     const pagination = this.detectPagination(doc);
-
-    // Attach pagination to top schema if found
     if (pagination && schemas.length > 0) {
       schemas[0].pagination = pagination;
     }
@@ -97,7 +135,6 @@ export class AutoDetector {
   }
 
   private static convertJsonLdToSchema(items: any[]): CandidateSchema | null {
-    // Look for Product or ItemList
     const products = items.filter(
       (item) => item['@type'] === 'Product' || (Array.isArray(item['@type']) && item['@type'].includes('Product'))
     );
@@ -131,7 +168,7 @@ export class AutoDetector {
 
       return {
         type: 'jsonld',
-        title: 'Structured Schema.org Products',
+        title: `Structured Schema.org Products (${products.length} items)`,
         recordSelector: 'script[type="application/ld+json"]',
         confidence: 0.95,
         sampleCount: products.length,
@@ -170,38 +207,35 @@ export class AutoDetector {
    */
   static detectRepeatedCards(doc: Document): CandidateSchema[] {
     const candidateSchemas: CandidateSchema[] = [];
+    const testedSelectors = new Set<string>();
 
-    // Potential card containers
+    // 1. Common class and semantic patterns
     const commonSelectors = [
       '[class*="product"]',
       '[class*="item"]',
       '[class*="card"]',
       '[class*="listing"]',
+      '[class*="goods"]',
+      '[class*="c-product"]',
       '[class*="grid"] > div',
       'ul > li',
       'article',
-      '.goods-item',
-      '.c-product-box',
     ];
-
-    const testedSelectors = new Set<string>();
 
     for (const selector of commonSelectors) {
       try {
         const elements = Array.from(doc.querySelectorAll(selector));
-        // Filter out non-card small or invisible elements
         const validCards = elements.filter((el) => {
           if (el.children.length === 0) return false;
           const text = el.textContent?.trim() || '';
-          if (text.length < 5 || text.length > 3000) return false;
-          // Must have at least a link or image or title
+          if (text.length < 4 || text.length > 4000) return false;
           const hasImg = el.querySelector('img, [style*="background-image"]');
           const hasLink = el.querySelector('a');
           const hasHeading = el.querySelector('h1, h2, h3, h4, h5, h6, [class*="title"], [class*="name"]');
           return Boolean(hasImg || hasLink || hasHeading);
         });
 
-        if (validCards.length >= 3) {
+        if (validCards.length >= 2) {
           const specificSelector = this.deriveOptimalSelector(validCards[0], selector);
           if (testedSelectors.has(specificSelector)) continue;
           testedSelectors.add(specificSelector);
@@ -213,7 +247,7 @@ export class AutoDetector {
 
             candidateSchemas.push({
               type: 'catalog',
-              title: `Product/Item Cards (${validCards.length} items)`,
+              title: `Catalog/Product Cards (${validCards.length} items)`,
               recordSelector: specificSelector,
               confidence,
               sampleCount: validCards.length,
@@ -222,8 +256,59 @@ export class AutoDetector {
             });
           }
         }
-      } catch {
-        // Ignore invalid DOM query errors
+      } catch {}
+    }
+
+    // 2. Generic Sibling Cluster Discovery for modern websites (Tailwind, CSS modules, Next.js)
+    if (candidateSchemas.length === 0) {
+      const containers = Array.from(
+        doc.querySelectorAll('main, article, [role="main"], #content, section, body > div, .container, [class*="grid"], [class*="list"]')
+      );
+
+      for (const container of containers) {
+        const children = Array.from(container.children);
+        if (children.length >= 2) {
+          const groups = new Map<string, Element[]>();
+          for (const child of children) {
+            const firstClass = typeof child.className === 'string' && child.className.trim() ? child.className.trim().split(/\s+/)[0] : '';
+            const key = `${child.tagName.toLowerCase()}${firstClass ? '.' + firstClass : ''}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(child);
+          }
+
+          for (const [key, items] of groups.entries()) {
+            if (items.length >= 2) {
+              const cardsWithContent = items.filter((el) => {
+                const text = el.textContent?.trim() || '';
+                return (
+                  text.length >= 5 &&
+                  Boolean(el.querySelector('a, img, h1, h2, h3, h4, h5, h6, [class*="title"]'))
+                );
+              });
+
+              if (cardsWithContent.length >= 2) {
+                const selector = this.deriveOptimalSelector(cardsWithContent[0], key);
+                if (!testedSelectors.has(selector)) {
+                  testedSelectors.add(selector);
+                  const fields = this.extractFieldsFromCards(cardsWithContent.slice(0, 5));
+                  if (fields.length > 0) {
+                    const previewRecords = this.buildPreviewRecords(cardsWithContent.slice(0, 5), fields);
+                    const confidence = this.computeConfidence(cardsWithContent.length, fields);
+                    candidateSchemas.push({
+                      type: 'catalog',
+                      title: `Content Items (${cardsWithContent.length} items)`,
+                      recordSelector: selector,
+                      confidence,
+                      sampleCount: cardsWithContent.length,
+                      fields,
+                      previewRecords,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
 
@@ -360,8 +445,8 @@ export class AutoDetector {
   }
 
   private static computeConfidence(itemCount: number, fields: DetectedField[]): number {
-    let score = 0.5;
-    if (itemCount >= 5) score += 0.15;
+    let score = 0.55;
+    if (itemCount >= 4) score += 0.15;
     if (fields.some((f) => f.name === 'product_name')) score += 0.15;
     if (fields.some((f) => f.name === 'price')) score += 0.1;
     if (fields.some((f) => f.name === 'image')) score += 0.1;
@@ -369,7 +454,99 @@ export class AutoDetector {
   }
 
   /**
-   * Stage 3: Table detection (Nested, rowspan, colspan, dynamic headers)
+   * Stage 4: Single Product / Article Detail Page Fallback
+   */
+  private static detectSingleDetailPage(doc: Document): CandidateSchema | null {
+    const mainHeading = doc.querySelector('h1, [class*="product-title"], [class*="product-name"], [class*="title"]');
+    if (!mainHeading || !mainHeading.textContent?.trim()) return null;
+
+    const titleText = mainHeading.textContent.trim();
+    const priceEl = doc.querySelector('[class*="price"], [class*="قیمت"], [id*="price"]');
+    const imgEl = doc.querySelector('main img, article img, [class*="gallery"] img, [class*="product"] img, img');
+    const descEl = doc.querySelector('[class*="description"], [class*="summary"], article p, main p');
+
+    const fields: DetectedField[] = [
+      { name: 'title', cssSelector: this.deriveOptimalSelector(mainHeading, 'h1'), xpathFallback: '//h1', attribute: 'text', sampleValue: titleText, confidence: 0.95 },
+    ];
+
+    if (priceEl) {
+      fields.push({
+        name: 'price',
+        cssSelector: this.deriveOptimalSelector(priceEl, '[class*="price"]'),
+        xpathFallback: "//*[contains(@class, 'price')]",
+        attribute: 'text',
+        sampleValue: priceEl.textContent?.trim() || '',
+        confidence: 0.9,
+      });
+    }
+
+    if (imgEl) {
+      fields.push({
+        name: 'image',
+        cssSelector: this.deriveOptimalSelector(imgEl, 'img'),
+        xpathFallback: '//img',
+        attribute: 'src',
+        sampleValue: imgEl.getAttribute('src') || '',
+        confidence: 0.9,
+      });
+    }
+
+    if (descEl) {
+      fields.push({
+        name: 'description',
+        cssSelector: this.deriveOptimalSelector(descEl, 'p'),
+        xpathFallback: '//p',
+        attribute: 'text',
+        sampleValue: descEl.textContent?.trim().substring(0, 150) || '',
+        confidence: 0.85,
+      });
+    }
+
+    const previewRecord: Record<string, any> = { title: titleText };
+    if (priceEl) previewRecord.price = priceEl.textContent?.trim() || '';
+    if (imgEl) previewRecord.image = imgEl.getAttribute('src') || '';
+    if (descEl) previewRecord.description = descEl.textContent?.trim().substring(0, 150) || '';
+
+    return {
+      type: 'detail',
+      title: `Article / Detail Page: "${titleText.substring(0, 35)}..."`,
+      recordSelector: 'body',
+      confidence: 0.85,
+      sampleCount: 1,
+      fields,
+      previewRecords: [previewRecord],
+    };
+  }
+
+  /**
+   * Stage 5: Prominent Links Fallback
+   */
+  private static detectLinksCatalog(doc: Document): CandidateSchema | null {
+    const allLinks = Array.from(doc.querySelectorAll('main a[href], #content a[href], article a[href], body a[href]')).filter(
+      (a) => (a.textContent?.trim().length || 0) > 10
+    );
+
+    if (allLinks.length < 2) return null;
+
+    return {
+      type: 'catalog',
+      title: `Detected Page Links & Headlines (${allLinks.length} items)`,
+      recordSelector: 'a[href]',
+      confidence: 0.72,
+      sampleCount: allLinks.length,
+      fields: [
+        { name: 'title', cssSelector: '', xpathFallback: '', attribute: 'text', sampleValue: allLinks[0].textContent?.trim() || '', confidence: 0.8 },
+        { name: 'url', cssSelector: '', xpathFallback: '', attribute: 'href', sampleValue: allLinks[0].getAttribute('href') || '', confidence: 0.85 },
+      ],
+      previewRecords: allLinks.slice(0, 5).map((a) => ({
+        title: a.textContent?.trim() || '',
+        url: a.getAttribute('href') || '',
+      })),
+    };
+  }
+
+  /**
+   * Table detection (Nested, rowspan, colspan, dynamic headers)
    */
   static detectTables(doc: Document, currentUrl: string): ExtractedTable[] {
     const extractedTables: ExtractedTable[] = [];
@@ -388,7 +565,7 @@ export class AutoDetector {
         headers = thElements.map((th, colIdx) => th.textContent?.trim() || `Column_${colIdx + 1}`);
       }
 
-      // Extract Rows (handling colspan & rowspan)
+      // Extract Rows
       const dataRows: (string | number)[][] = [];
       const startIdx = rows[0].querySelector('th') ? 1 : 0;
 
@@ -418,10 +595,9 @@ export class AutoDetector {
   }
 
   /**
-   * Stage 4: Pagination detection
+   * Pagination detection
    */
   static detectPagination(doc: Document): CandidateSchema['pagination'] | undefined {
-    // 1. Next button
     const nextBtn = doc.querySelector(
       'a[rel="next"], [aria-label*="next" i], [class*="pagination-next" i], [class*="btn-next" i], a:contains("Next"), a:contains("بعدی")'
     );
@@ -432,7 +608,6 @@ export class AutoDetector {
       };
     }
 
-    // 2. Load more button
     const loadMoreBtn = doc.querySelector(
       'button[class*="load-more" i], a[class*="load-more" i], button:contains("Load More"), button:contains("بارگذاری بیشتر")'
     );
@@ -443,7 +618,6 @@ export class AutoDetector {
       };
     }
 
-    // 3. Numbered pagination
     const numbered = doc.querySelector('ul[class*="pagination" i], nav[class*="pagination" i], .pager');
     if (numbered) {
       return {

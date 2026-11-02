@@ -62,4 +62,7 @@ const runtimeMock = {
     setOptions: vi.fn(),
     setPanelBehavior: vi.fn().mockResolvedValue(undefined),
   },
+  scripting: {
+    executeScript: vi.fn().mockImplementation((config, cb) => cb ? cb() : Promise.resolve()),
+  },
 };

@@ -17,7 +17,19 @@ import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
 
 export const Dashboard: React.FC = () => {
-  const { activeJob, loadJobs, scanActiveTab, setView, isScanning, pauseJob, resumeJob, stopJob } = useScraperStore();
+  const {
+    activeJob,
+    loadJobs,
+    scanActiveTab,
+    openDemoPage,
+    setView,
+    isScanning,
+    scanError,
+    activeTabUrl,
+    pauseJob,
+    resumeJob,
+    stopJob,
+  } = useScraperStore();
   const [storageBytes, setStorageBytes] = useState<number>(0);
 
   useEffect(() => {
@@ -77,6 +89,16 @@ export const Dashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              openDemoPage();
+              setView('oneClick');
+            }}
+            className="flex items-center space-x-1.5 rtl:space-x-reverse bg-slate-800 hover:bg-slate-700 text-teal-300 font-medium px-3 py-2 rounded-lg text-xs border border-teal-500/30 transition shadow-sm"
+          >
+            <span>Open Demo Page</span>
+          </button>
+
           <button
             onClick={() => {
               scanActiveTab();
