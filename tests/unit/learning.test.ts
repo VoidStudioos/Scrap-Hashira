@@ -40,6 +40,25 @@ describe('Smart Learning Engine & Selector Resilience', () => {
     expect(res.cssSelector).toBe(res.repeatedSelector);
   });
 
+  it('selects table columns automatically across multiple rows', () => {
+    const tableContainer = doc.createElement('div');
+    tableContainer.innerHTML = `
+      <table id="test-table">
+        <tbody>
+          <tr><td>A1</td><td>B1</td></tr>
+          <tr><td>A2</td><td>B2</td></tr>
+          <tr><td>A3</td><td>B3</td></tr>
+        </tbody>
+      </table>
+    `;
+    doc.body.appendChild(tableContainer);
+
+    const targetCell = tableContainer.querySelectorAll('td')[1]; // B1 (col 2)
+    const repeated = LearningEngine.deriveRepeatedSelector(targetCell, doc);
+    expect(repeated.selector).toContain('#test-table');
+    expect(repeated.count).toBe(3);
+  });
+
   it('extracts field values reliably using CSS first and attribute types', () => {
     const cardEl = doc.querySelector('.product-card')!;
     const val = LearningEngine.extractFieldValue(cardEl, {

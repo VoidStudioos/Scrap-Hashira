@@ -19,7 +19,9 @@ export const Popup: React.FC = () => {
 
   const handleOpenSidePanel = () => {
     if (typeof chrome !== 'undefined' && chrome.runtime) {
-      chrome.runtime.sendMessage({ action: 'OPEN_SIDEPANEL' });
+      chrome.runtime.sendMessage({ action: 'OPEN_SIDEPANEL' }, () => {
+        void chrome.runtime.lastError;
+      });
       window.close();
     }
   };

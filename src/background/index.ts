@@ -23,21 +23,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (action) {
     case 'PING':
       sendResponse({ success: true, timestamp: Date.now() });
-      return true;
+      return;
 
     case 'OPEN_SIDEPANEL':
       if (chrome.sidePanel && chrome.sidePanel.open) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          void chrome.runtime.lastError;
           if (tabs[0]?.id) {
             chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
           }
         });
       }
       sendResponse({ success: true });
-      return true;
+      return;
 
     case 'SEND_TO_ACTIVE_TAB': {
       chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+        void chrome.runtime.lastError;
         if (!tabs[0]?.id) {
           sendResponse({ success: false, error: 'No active tab found' });
           return;
@@ -48,13 +50,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           const res = await chrome.tabs.sendMessage(tabId, payload);
           sendResponse({ success: true, data: res });
         } catch (err: any) {
-          sendResponse({ success: false, error: err.message });
+          sendResponse({ success: false, error: err?.message || 'Failed to send' });
         }
       });
       return true;
     }
 
     default:
-      return false;
+      return;
   }
 });

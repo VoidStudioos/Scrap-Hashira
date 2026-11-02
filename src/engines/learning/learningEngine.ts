@@ -103,7 +103,29 @@ export class LearningEngine {
       }
     }
 
-    // Pattern B: Class names
+    // Pattern B: Table Columns / Cells (If inside a table td/th)
+    const tdAncestor = el.closest ? el.closest('td, th') : null;
+    if (tdAncestor && tdAncestor.parentElement) {
+      const row = tdAncestor.parentElement;
+      const cells = Array.from(row.children);
+      const colIndex = cells.indexOf(tdAncestor) + 1;
+      if (colIndex > 0) {
+        const table = el.closest ? el.closest('table') : null;
+        const tablePrefix = table && table.id ? `table#${table.id}` : (table && table.className && typeof table.className === 'string' && table.className.trim() ? `table.${table.className.trim().split(/\s+/)[0]}` : 'table');
+        const tableCandidate = el === tdAncestor 
+          ? `${tablePrefix} tr td:nth-child(${colIndex})`
+          : `${tablePrefix} tr td:nth-child(${colIndex}) ${tag}`;
+        try {
+          const queryRoot = root instanceof Document || root instanceof Element ? root : doc;
+          const matches = queryRoot.querySelectorAll(tableCandidate);
+          if (matches.length > 1) {
+            return { selector: tableCandidate, count: matches.length };
+          }
+        } catch {}
+      }
+    }
+
+    // Pattern C: Class names on element itself
     if (el.className && typeof el.className === 'string') {
       const classes = el.className.trim().split(/\s+/).filter((c) => !c.match(/\d{3,}/) && c.length > 2 && !c.includes(':'));
       for (const cls of classes) {
@@ -117,7 +139,48 @@ export class LearningEngine {
       }
     }
 
-    // Pattern C: Parent container repeated children (e.g. .grid > div, ul > li, tr > td)
+    // Pattern D: Ancestor Repeated Cards / Containers (Climb up to 5 levels)
+    let current: Element | null = el.parentElement;
+    let depth = 0;
+    while (current && depth < 5 && current !== doc.body) {
+      const cTag = current.tagName.toLowerCase();
+      const candidatesToTest: string[] = [];
+
+      if (cTag === 'li' || cTag === 'tr' || cTag === 'article') {
+        candidatesToTest.push(cTag);
+      }
+
+      if (current.className && typeof current.className === 'string') {
+        const cClasses = current.className.trim().split(/\s+/).filter((c) => !c.match(/\d{3,}/) && c.length > 2 && !c.includes(':'));
+        for (const cls of cClasses.slice(0, 2)) {
+          candidatesToTest.push(`.${cls}`);
+          candidatesToTest.push(`${cTag}.${cls}`);
+        }
+      }
+
+      for (const parentSel of candidatesToTest) {
+        try {
+          const parentMatches = doc.querySelectorAll(parentSel);
+          if (parentMatches.length > 1) {
+            const elFirstClass = el.className && typeof el.className === 'string' && el.className.trim()
+              ? el.className.trim().split(/\s+/)[0]
+              : '';
+            const fullCandidate = elFirstClass && !elFirstClass.includes(':')
+              ? `${parentSel} .${elFirstClass}`
+              : `${parentSel} ${tag}`;
+            const subMatches = doc.querySelectorAll(fullCandidate);
+            if (subMatches.length > 1) {
+              return { selector: fullCandidate, count: subMatches.length };
+            }
+          }
+        } catch {}
+      }
+
+      current = current.parentElement;
+      depth++;
+    }
+
+    // Pattern E: Parent container repeated children (e.g. .grid > div, ul > li, tr > td)
     if (el.parentElement) {
       const parent = el.parentElement;
       const parentTag = parent.tagName.toLowerCase();

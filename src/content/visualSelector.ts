@@ -193,17 +193,19 @@ export class VisualElementSelector {
   private highlightAllMatches(elements: HTMLElement[]): void {
     this.clearMatches();
 
-    elements.slice(0, 50).forEach((el) => {
+    elements.slice(0, 100).forEach((el) => {
       const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+
       const overlay = document.createElement('div');
       overlay.className = 'hashira-match-marker';
-      overlay.style.position = 'fixed';
+      overlay.style.position = 'absolute';
       overlay.style.pointerEvents = 'none';
       overlay.style.zIndex = '2147483639';
       overlay.style.border = '2px dashed #f59e0b';
       overlay.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
-      overlay.style.top = `${rect.top}px`;
-      overlay.style.left = `${rect.left}px`;
+      overlay.style.top = `${rect.top + window.scrollY}px`;
+      overlay.style.left = `${rect.left + window.scrollX}px`;
       overlay.style.width = `${rect.width}px`;
       overlay.style.height = `${rect.height}px`;
       document.body.appendChild(overlay);

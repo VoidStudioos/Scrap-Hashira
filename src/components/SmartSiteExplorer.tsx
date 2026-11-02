@@ -15,6 +15,7 @@ import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
 import type { DiscoveredUrlNode } from '../types';
 import { SiteExplorer } from '../engines/explorer/siteExplorer';
+import { sendTabMessage } from '../utils/chromeTab';
 
 export const SmartSiteExplorer: React.FC = () => {
   const { explorerTree, performanceConfig, setPerformanceConfig, setView } = useScraperStore();
@@ -22,32 +23,17 @@ export const SmartSiteExplorer: React.FC = () => {
   const [isExploring, setIsExploring] = useState<boolean>(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['categories', 'listings', 'details']));
 
-  const handleExplore = () => {
+  const handleExplore = async () => {
     setIsExploring(true);
     if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]?.id) {
-          setIsExploring(false);
-          return;
-        }
-
-        chrome.tabs.sendMessage(
-          tabs[0].id,
-          {
-            action: 'EXPLORE_SITE',
-            payload: {
-              maxPages: performanceConfig.maxPages,
-              stayOnDomain: true,
-            },
-          },
-          (res) => {
-            setIsExploring(false);
-            if (res && res.success && res.data) {
-              setTree(res.data);
-            }
-          }
-        );
+      const res = await sendTabMessage<any>('EXPLORE_SITE', {
+        maxPages: performanceConfig.maxPages,
+        stayOnDomain: true,
       });
+      setIsExploring(false);
+      if (res && res.success && res.data) {
+        setTree(res.data);
+      }
     } else {
       // Local fallback mock exploration
       setTimeout(() => {

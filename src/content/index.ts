@@ -14,22 +14,27 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
     const { action, payload } = message;
 
     switch (action) {
+      case 'PING': {
+        sendResponse({ success: true, timestamp: Date.now() });
+        return;
+      }
+
       case 'DETECT_PAGE_DATA': {
         const detection = AutoDetector.detect(document, window.location.href);
         sendResponse({ success: true, data: detection });
-        return true;
+        return;
       }
 
       case 'EXPLORE_SITE': {
         const siteTree = SiteExplorer.explorePage(document, window.location.href, payload);
         sendResponse({ success: true, data: siteTree });
-        return true;
+        return;
       }
 
       case 'DISCOVER_IMAGES': {
         const images = ImageDiscovery.discoverImages(document, payload?.jobId || '', window.location.href);
         sendResponse({ success: true, data: images });
-        return true;
+        return;
       }
 
       case 'START_VISUAL_SELECTOR': {
@@ -38,15 +43,19 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         }
         activeSelector = new VisualElementSelector({
           onElementSelected: (data) => {
-            chrome.runtime.sendMessage({ action: 'VISUAL_ELEMENT_SELECTED', payload: data });
+            chrome.runtime.sendMessage({ action: 'VISUAL_ELEMENT_SELECTED', payload: data }, () => {
+              void chrome.runtime.lastError;
+            });
           },
           onClosed: () => {
-            chrome.runtime.sendMessage({ action: 'VISUAL_SELECTOR_CLOSED' });
+            chrome.runtime.sendMessage({ action: 'VISUAL_SELECTOR_CLOSED' }, () => {
+              void chrome.runtime.lastError;
+            });
           },
         });
         activeSelector.activate();
         sendResponse({ success: true, message: 'Visual selector activated' });
-        return true;
+        return;
       }
 
       case 'STOP_VISUAL_SELECTOR': {
@@ -55,24 +64,24 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
           activeSelector = null;
         }
         sendResponse({ success: true, message: 'Visual selector deactivated' });
-        return true;
+        return;
       }
 
       case 'UPDATE_SELECTOR_HIGHLIGHT': {
         if (activeSelector && payload?.selector) {
           const res = activeSelector.highlightBySelector(payload.selector);
           sendResponse({ success: true, count: res.count, items: res.items });
-          return true;
+          return;
         }
         sendResponse({ success: false });
-        return false;
+        return;
       }
 
       case 'EXTRACT_BY_RULES': {
         const { recordSelector, fieldSelectors, jobId } = payload;
         const records = extractRecordsFromDom(recordSelector, fieldSelectors, jobId || '');
         sendResponse({ success: true, data: records });
-        return true;
+        return;
       }
 
       case 'TRIGGER_SCROLL': {
@@ -85,7 +94,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 
       default:
         sendResponse({ success: false, error: `Unknown action: ${action}` });
-        return false;
+        return;
     }
   });
 }

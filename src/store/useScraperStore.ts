@@ -14,6 +14,7 @@ import type {
 import { StorageService, defaultPerformanceConfig } from '../storage/storageService';
 import { I18nManager } from '../localization/i18n';
 import type { CandidateSchema } from '../engines/detection/autoDetector';
+import { getActiveTab, isRestrictedUrl, ensureContentScriptReady, sendTabMessage } from '../utils/chromeTab';
 
 export type NavView =
   | 'dashboard'
@@ -140,128 +141,58 @@ export const useScraperStore = create<ScraperState>((set, get) => ({
   scanActiveTab: async () => {
     set({ isScanning: true, scanError: null });
 
-    if (typeof chrome === 'undefined' || !chrome.tabs) {
-      set({ isScanning: false, scanError: 'Chrome APIs not available in this environment' });
+    const tab = await getActiveTab();
+    if (!tab?.id) {
+      set({ isScanning: false, scanError: 'NO_ACTIVE_TAB' });
       return;
     }
 
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.id) {
-        set({ isScanning: false, scanError: 'NO_ACTIVE_TAB' });
-        return;
-      }
+    const url = tab.url || '';
+    set({ activeTabUrl: url });
 
-      const url = tab.url || '';
-      set({ activeTabUrl: url });
+    if (isRestrictedUrl(url)) {
+      set({
+        isScanning: false,
+        scanError: 'CHROME_INTERNAL',
+      });
+      return;
+    }
 
-      // Detect internal browser pages where content scripts are restricted by Chrome security
-      if (
-        url.startsWith('chrome://') ||
-        url.startsWith('chrome-extension://') ||
-        url.startsWith('edge://') ||
-        url.startsWith('about:')
-      ) {
-        set({
-          isScanning: false,
-          scanError: 'CHROME_INTERNAL',
-        });
-        return;
-      }
-
-      const executeDetection = () => {
-        chrome.tabs.sendMessage(tab.id!, { action: 'DETECT_PAGE_DATA' }, (response) => {
-          if (chrome.runtime.lastError || !response) {
-            // Content script was not yet injected into this tab (e.g. tab was open before extension installed)
-            // Dynamically inject content.js on the fly via chrome.scripting
-            if (chrome.scripting) {
-              chrome.scripting.executeScript(
-                {
-                  target: { tabId: tab.id! },
-                  files: ['content.js'],
-                },
-                () => {
-                  if (chrome.runtime.lastError) {
-                    set({
-                      isScanning: false,
-                      scanError: chrome.runtime.lastError.message || 'INJECTION_FAILED',
-                    });
-                    return;
-                  }
-
-                  // Retry detection after script is injected
-                  setTimeout(() => {
-                    chrome.tabs.sendMessage(tab.id!, { action: 'DETECT_PAGE_DATA' }, (retryResponse) => {
-                      if (retryResponse?.success && retryResponse.data) {
-                        set({
-                          detectedSchemas: retryResponse.data.schemas || [],
-                          detectedTables: retryResponse.data.tables || [],
-                          isScanning: false,
-                          scanError: null,
-                        });
-                      } else {
-                        set({
-                          isScanning: false,
-                          scanError: 'NO_DATA_RETURNED',
-                        });
-                      }
-                    });
-                  }, 200);
-                }
-              );
-            } else {
-              set({ isScanning: false, scanError: 'SCRIPTING_API_UNAVAILABLE' });
-            }
-          } else if (response.success && response.data) {
-            set({
-              detectedSchemas: response.data.schemas || [],
-              detectedTables: response.data.tables || [],
-              isScanning: false,
-              scanError: null,
-            });
-          } else {
-            set({ isScanning: false, scanError: 'EMPTY_RESPONSE' });
-          }
-        });
-      };
-
-      executeDetection();
-    });
+    const res = await sendTabMessage<any>('DETECT_PAGE_DATA');
+    if (res && res.success && res.data) {
+      set({
+        detectedSchemas: res.data.schemas || [],
+        detectedTables: res.data.tables || [],
+        isScanning: false,
+        scanError: null,
+      });
+    } else {
+      set({
+        isScanning: false,
+        scanError: res.error || 'NO_DATA_RETURNED',
+      });
+    }
   },
 
   startOneClickJob: async (schema: CandidateSchema) => {
-    if (typeof chrome === 'undefined' || !chrome.tabs) return;
+    const tab = await getActiveTab();
+    const url = tab?.url || 'https://example.com';
+    const job = await StorageService.createJob(url, `Scrape: ${schema.title}`, get().performanceConfig);
 
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const activeTab = tabs[0];
-      const url = activeTab?.url || 'https://example.com';
-      const job = await StorageService.createJob(url, `Scrape: ${schema.title}`, get().performanceConfig);
+    set({ activeJob: job });
+    await StorageService.updateJobState(job.id, 'RUNNING');
 
-      set({ activeJob: job });
-      await StorageService.updateJobState(job.id, 'RUNNING');
-
-      // Request live content extraction from page
-      if (activeTab?.id) {
-        chrome.tabs.sendMessage(
-          activeTab.id,
-          {
-            action: 'EXTRACT_BY_RULES',
-            payload: {
-              recordSelector: schema.recordSelector,
-              fieldSelectors: schema.fields,
-              jobId: job.id,
-            },
-          },
-          async (res) => {
-            if (res && res.success && res.data) {
-              await StorageService.addRecords(res.data);
-              await StorageService.updateJobState(job.id, 'COMPLETED');
-              await get().loadJobs();
-            }
-          }
-        );
-      }
+    const res = await sendTabMessage<any[]>('EXTRACT_BY_RULES', {
+      recordSelector: schema.recordSelector,
+      fieldSelectors: schema.fields,
+      jobId: job.id,
     });
+
+    if (res && res.success && res.data) {
+      await StorageService.addRecords(res.data);
+      await StorageService.updateJobState(job.id, 'COMPLETED');
+      await get().loadJobs();
+    }
   },
 
   pauseJob: async (id: string) => {
@@ -279,17 +210,27 @@ export const useScraperStore = create<ScraperState>((set, get) => ({
     await get().loadJobs();
   },
 
-  setVisualSelectorActive: (active: boolean) => {
+  setVisualSelectorActive: async (active: boolean) => {
     set({ visualSelectorActive: active });
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: active ? 'START_VISUAL_SELECTOR' : 'STOP_VISUAL_SELECTOR',
-          });
-        }
-      });
+
+    const tab = await getActiveTab();
+    if (!tab?.id) return;
+
+    if (active) {
+      if (isRestrictedUrl(tab.url)) {
+        set({ scanError: 'CHROME_INTERNAL', visualSelectorActive: false });
+        return;
+      }
+      await ensureContentScriptReady(tab.id);
     }
+
+    chrome.tabs.sendMessage(
+      tab.id,
+      { action: active ? 'START_VISUAL_SELECTOR' : 'STOP_VISUAL_SELECTOR' },
+      () => {
+        void chrome.runtime.lastError;
+      }
+    );
   },
 
   setVisualSelectorData: (data: any) => {

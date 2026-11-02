@@ -21,6 +21,7 @@ import { StorageService } from '../storage/storageService';
 import { ExportManager } from '../exports/exportManager';
 import { ImageDownloader } from '../engines/images/imageDownloader';
 import type { SelectorRule, ExtractedImage } from '../types';
+import { sendTabMessage } from '../utils/chromeTab';
 
 export const VisualSelectorPanel: React.FC = () => {
   const {
@@ -30,6 +31,8 @@ export const VisualSelectorPanel: React.FC = () => {
     setVisualSelectorData,
     loadProfiles,
     setView,
+    openDemoPage,
+    scanError,
   } = useScraperStore();
 
   const [fields, setFields] = useState<SelectorRule[]>([]);
@@ -40,7 +43,7 @@ export const VisualSelectorPanel: React.FC = () => {
   const [isDownloadingImages, setIsDownloadingImages] = useState<boolean>(false);
 
   useEffect(() => {
-    const listener = (message: any) => {
+    const listener = (message: any, _sender: any, sendResponse?: (res: any) => void) => {
       if (message.action === 'VISUAL_ELEMENT_SELECTED') {
         const payload = message.payload;
         setVisualSelectorData(payload);
@@ -58,8 +61,10 @@ export const VisualSelectorPanel: React.FC = () => {
         if (payload.allExtractedItems && payload.allExtractedItems.length > 0) {
           setExtractedPreview(payload.allExtractedItems);
         }
+        if (sendResponse) sendResponse({ received: true });
       } else if (message.action === 'VISUAL_SELECTOR_CLOSED') {
         setVisualSelectorActive(false);
+        if (sendResponse) sendResponse({ received: true });
       }
     };
 
@@ -73,25 +78,16 @@ export const VisualSelectorPanel: React.FC = () => {
     setVisualSelectorActive(!visualSelectorActive);
   };
 
-  const updateSelectorAndHighlight = (newSelector: string) => {
+  const updateSelectorAndHighlight = async (newSelector: string) => {
     setActiveCssSelector(newSelector);
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          chrome.tabs.sendMessage(
-            tabs[0].id,
-            { action: 'UPDATE_SELECTOR_HIGHLIGHT', payload: { selector: newSelector } },
-            (res) => {
-              if (res?.success) {
-                setCurrentMatchCount(res.count || 0);
-                if (res.items) {
-                  setExtractedPreview(res.items);
-                }
-              }
-            }
-          );
-        }
-      });
+    if (!newSelector.trim()) return;
+
+    const res = await sendTabMessage<any>('UPDATE_SELECTOR_HIGHLIGHT', { selector: newSelector });
+    if (res?.success) {
+      setCurrentMatchCount(res.count || 0);
+      if (res.items) {
+        setExtractedPreview(res.items);
+      }
     }
   };
 
@@ -190,6 +186,34 @@ export const VisualSelectorPanel: React.FC = () => {
         </button>
       </div>
 
+      {/* Active State / Internal Page Guidance Banner */}
+      {scanError === 'CHROME_INTERNAL' ? (
+        <div className="bg-amber-950/40 border border-amber-600/60 rounded-xl p-4 text-xs text-amber-200 space-y-2">
+          <div className="font-bold flex items-center space-x-1.5 rtl:space-x-reverse text-amber-300">
+            <span>⚠️ Chrome Security Restriction</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-amber-300/80">
+            Chrome prevents extensions from running scripts on internal pages (<code className="bg-slate-900 px-1 py-0.5 rounded text-amber-400">chrome://</code>, <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-400">chrome-extension://</code>). Please switch to an external website or click below to launch the local demo store.
+          </p>
+          <button
+            onClick={openDemoPage}
+            className="flex items-center space-x-1.5 rtl:space-x-reverse bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Open Demo Store</span>
+          </button>
+        </div>
+      ) : visualSelectorActive && !visualSelectorData ? (
+        <div className="bg-emerald-950/40 border border-emerald-500/60 rounded-xl p-3.5 text-xs text-emerald-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
+            <span className="flex h-3 w-3 rounded-full bg-emerald-400 animate-ping" />
+            <span className="font-semibold text-emerald-300">
+              Selector is active! Move your mouse over any element on the page and click it.
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Active Selection Inspector */}
       {visualSelectorData ? (
         <div className="bg-slate-800/70 border border-emerald-500/50 rounded-xl p-5 space-y-4">
@@ -197,7 +221,7 @@ export const VisualSelectorPanel: React.FC = () => {
             <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
               <span className="text-xs font-bold text-emerald-400">
-                {currentMatchCount} matching elements found on page
+                {currentMatchCount} matching elements selected
               </span>
             </div>
 
@@ -226,7 +250,51 @@ export const VisualSelectorPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Editable CSS Selector */}
+          {/* Quick Preset Chips for Selecting Multiple Items */}
+          <div className="space-y-1.5">
+            <span className="text-[11px] text-slate-400 font-medium">Quick Multi-Select Presets:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {visualSelectorData.repeatedSelector && (
+                <button
+                  type="button"
+                  onClick={() => updateSelectorAndHighlight(visualSelectorData.repeatedSelector)}
+                  className="bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-600/60 text-emerald-300 text-[10px] px-2.5 py-1 rounded-md font-medium transition"
+                >
+                  ⭐ All Similar Items ({visualSelectorData.repeatedMatchCount || currentMatchCount})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => updateSelectorAndHighlight('img')}
+                className="bg-slate-900 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] px-2 py-1 rounded-md transition"
+              >
+                🖼️ All Images (img)
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSelectorAndHighlight('a')}
+                className="bg-slate-900 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] px-2 py-1 rounded-md transition"
+              >
+                🔗 All Links (a)
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSelectorAndHighlight('tr td')}
+                className="bg-slate-900 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] px-2 py-1 rounded-md transition"
+              >
+                📊 Table Cells (tr td)
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSelectorAndHighlight('.card, .product-card, .item, article')}
+                className="bg-slate-900 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] px-2 py-1 rounded-md transition"
+              >
+                📦 All Cards (.card, article)
+              </button>
+            </div>
+          </div>
+
+          {/* Editable CSS Selector with Apply Button */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">
               <label className="text-slate-300 font-medium flex items-center space-x-1 rtl:space-x-reverse">
@@ -234,15 +302,30 @@ export const VisualSelectorPanel: React.FC = () => {
                 <span>CSS Selector:</span>
               </label>
               <span className="text-slate-400 text-[11px]">
-                You can edit this selector directly to change the matched items.
+                Type or edit any selector, then press Enter or click Apply.
               </span>
             </div>
-            <input
-              type="text"
-              value={activeCssSelector}
-              onChange={(e) => updateSelectorAndHighlight(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={activeCssSelector}
+                onChange={(e) => setActiveCssSelector(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    updateSelectorAndHighlight(activeCssSelector);
+                  }
+                }}
+                placeholder="e.g. img[id^='imgEgrp'], .product-title, tr td:nth-child(2)"
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={() => updateSelectorAndHighlight(activeCssSelector)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-3.5 py-2 rounded-lg text-xs transition"
+              >
+                Apply
+              </button>
+            </div>
           </div>
 
           {/* Quick Actions & Column Name */}
