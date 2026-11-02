@@ -7,23 +7,48 @@ import {
   Play,
   Save,
   Code,
+  Layers,
+  Sparkles,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
 import { StorageService } from '../storage/storageService';
+import { ExportManager } from '../exports/exportManager';
 import type { SelectorRule } from '../types';
 
 export const VisualSelectorPanel: React.FC = () => {
-  const { visualSelectorActive, setVisualSelectorActive, visualSelectorData, setVisualSelectorData, loadProfiles, setView } = useScraperStore();
+  const {
+    visualSelectorActive,
+    setVisualSelectorActive,
+    visualSelectorData,
+    setVisualSelectorData,
+    loadProfiles,
+    setView,
+  } = useScraperStore();
+
   const [fields, setFields] = useState<SelectorRule[]>([]);
   const [currentFieldName, setCurrentFieldName] = useState<string>('product_name');
-  const [recordSelector, setRecordSelector] = useState<string>('.product-card');
+  const [activeCssSelector, setActiveCssSelector] = useState<string>('');
+  const [currentMatchCount, setCurrentMatchCount] = useState<number>(1);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [extractedPreview, setExtractedPreview] = useState<any[]>([]);
 
   useEffect(() => {
-    // Listen for element selections from content script
     const listener = (message: any) => {
       if (message.action === 'VISUAL_ELEMENT_SELECTED') {
-        setVisualSelectorData(message.payload);
+        const payload = message.payload;
+        setVisualSelectorData(payload);
+
+        // Prefer repeatedSelector if multiple matches exist, else exact
+        const initialSelector =
+          payload.repeatedSelector && payload.repeatedMatchCount > 1
+            ? payload.repeatedSelector
+            : payload.cssSelector;
+
+        setActiveCssSelector(initialSelector);
+        setCurrentMatchCount(payload.matchCount || 1);
       } else if (message.action === 'VISUAL_SELECTOR_CLOSED') {
         setVisualSelectorActive(false);
       }
@@ -39,12 +64,41 @@ export const VisualSelectorPanel: React.FC = () => {
     setVisualSelectorActive(!visualSelectorActive);
   };
 
-  const handleAddFieldFromSelection = () => {
+  const updateSelectorAndHighlight = (newSelector: string) => {
+    setActiveCssSelector(newSelector);
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            { action: 'UPDATE_SELECTOR_HIGHLIGHT', payload: { selector: newSelector } },
+            (res) => {
+              if (res?.success && typeof res.count === 'number') {
+                setCurrentMatchCount(res.count);
+              }
+            }
+          );
+        }
+      });
+    }
+  };
+
+  const handleSelectMode = (mode: 'repeated' | 'exact') => {
     if (!visualSelectorData) return;
+    const targetSelector =
+      mode === 'repeated'
+        ? visualSelectorData.repeatedSelector || visualSelectorData.cssSelector
+        : visualSelectorData.exactSelector || visualSelectorData.cssSelector;
+
+    updateSelectorAndHighlight(targetSelector);
+  };
+
+  const handleAddFieldFromSelection = () => {
+    if (!visualSelectorData || !activeCssSelector) return;
 
     const newRule: SelectorRule = {
-      field: currentFieldName,
-      cssSelector: visualSelectorData.cssSelector,
+      field: currentFieldName || `field_${fields.length + 1}`,
+      cssSelector: activeCssSelector,
       xpathFallback: visualSelectorData.xpath,
       attribute: 'text',
       confidence: 0.95,
@@ -53,6 +107,54 @@ export const VisualSelectorPanel: React.FC = () => {
 
     setFields([...fields, newRule]);
     setCurrentFieldName('');
+  };
+
+  const handleInstantExtract = () => {
+    if (!activeCssSelector) return;
+    setIsExtracting(true);
+
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (!tabs[0]?.id) {
+          setIsExtracting(false);
+          return;
+        }
+
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          {
+            action: 'EXTRACT_BY_RULES',
+            payload: {
+              recordSelector: activeCssSelector,
+              fieldSelectors: [
+                { field: currentFieldName || 'item', cssSelector: '', attribute: 'text' },
+              ],
+              jobId: 'visual_job',
+            },
+          },
+          (res) => {
+            setIsExtracting(false);
+            if (res?.success && res.data) {
+              setExtractedPreview(res.data);
+            }
+          }
+        );
+      });
+    }
+  };
+
+  const handleExportExtractedExcel = () => {
+    if (!extractedPreview.length) return;
+    const rows = extractedPreview.map((item, idx) => ({
+      Index: idx + 1,
+      Value: item.title || item.data?.item || '',
+      Source_URL: item.sourceUrl,
+    }));
+    const buf = ExportManager.toXlsx(rows, 'Visual Extraction');
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    ExportManager.triggerFileDownload(blob, `hashira-visual-${Date.now()}.xlsx`);
   };
 
   const handleSaveAsProfile = async () => {
@@ -67,7 +169,7 @@ export const VisualSelectorPanel: React.FC = () => {
       name: `Visual Profile - ${domain}`,
       pageType: 'catalog',
       urlPattern: '.*',
-      recordSelector: recordSelector || fields[0].cssSelector,
+      recordSelector: activeCssSelector || fields[0].cssSelector,
       fieldSelectors: fields,
       confidenceScore: 0.95,
       successCount: 1,
@@ -111,59 +213,145 @@ export const VisualSelectorPanel: React.FC = () => {
       {/* Active Selection Inspector */}
       {visualSelectorData ? (
         <div className="bg-slate-800/70 border border-emerald-500/50 rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-3">
             <span className="text-xs font-semibold text-emerald-400 flex items-center space-x-1.5 rtl:space-x-reverse">
               <CheckCircle className="w-4 h-4" />
-              <span>Element Selected ({visualSelectorData.matchCount} matching elements found on page)</span>
+              <span>
+                Element Selected ({currentMatchCount} matching elements found on page)
+              </span>
             </span>
+
+            {/* Scope Toggle: All Similar vs Single Item */}
+            <div className="flex items-center space-x-1 rtl:space-x-reverse bg-slate-900 p-1 rounded-lg border border-slate-700">
+              <button
+                onClick={() => handleSelectMode('repeated')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                  activeCssSelector !== visualSelectorData.exactSelector
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🎯 Select All Similar ({visualSelectorData.repeatedMatchCount || currentMatchCount})
+              </button>
+              <button
+                onClick={() => handleSelectMode('exact')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                  activeCssSelector === visualSelectorData.exactSelector
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📌 Single Item Only (1)
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-            <div>
-              <span className="text-slate-400 block mb-1">CSS Selector:</span>
-              <div className="bg-slate-900 border border-slate-700 p-2 rounded text-emerald-300 break-all">
-                {visualSelectorData.cssSelector}
-              </div>
+          {/* Editable CSS Selector */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-xs">
+              <label className="text-slate-300 font-medium flex items-center space-x-1 rtl:space-x-reverse">
+                <Code className="w-3.5 h-3.5 text-emerald-400" />
+                <span>CSS Selector (Editable):</span>
+              </label>
+              <span className="text-emerald-400 font-mono text-[11px]">
+                Matches {currentMatchCount} elements
+              </span>
             </div>
-
-            <div>
-              <span className="text-slate-400 block mb-1">XPath Fallback:</span>
-              <div className="bg-slate-900 border border-slate-700 p-2 rounded text-slate-300 break-all">
-                {visualSelectorData.xpath}
-              </div>
-            </div>
+            <input
+              type="text"
+              value={activeCssSelector}
+              onChange={(e) => updateSelectorAndHighlight(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
+            />
           </div>
 
           <div>
             <span className="text-slate-400 text-xs block mb-1">Text Preview:</span>
-            <div className="bg-slate-900 border border-slate-700 p-2 rounded text-xs text-slate-200">
-              "{visualSelectorData.text.substring(0, 150)}"
+            <div className="bg-slate-900 border border-slate-700 p-2.5 rounded text-xs text-slate-200 truncate">
+              "{visualSelectorData.text?.substring(0, 150) || visualSelectorData.sampleValues?.[0] || 'No text content'}"
             </div>
           </div>
 
-          {/* Add to schema row */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <input
-              type="text"
-              placeholder="Field name (e.g. price, title)..."
-              value={currentFieldName}
-              onChange={(e) => setCurrentFieldName(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
+          {/* Actions Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <input
+                type="text"
+                placeholder="Column name (e.g. title, price)..."
+                value={currentFieldName}
+                onChange={(e) => setCurrentFieldName(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={handleAddFieldFromSelection}
+                className="flex items-center space-x-1 rtl:space-x-reverse bg-slate-700 hover:bg-slate-600 text-white font-medium px-3 py-1.5 rounded text-xs transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Column</span>
+              </button>
+            </div>
+
             <button
-              onClick={handleAddFieldFromSelection}
-              disabled={!currentFieldName}
-              className="flex items-center space-x-1 rtl:space-x-reverse bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3 py-1.5 rounded text-xs transition disabled:opacity-50"
+              onClick={handleInstantExtract}
+              disabled={isExtracting}
+              className="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs shadow-md transition disabled:opacity-50"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Field Column</span>
+              <Sparkles className="w-4 h-4" />
+              <span>
+                {isExtracting
+                  ? 'Extracting...'
+                  : `Extract All ${currentMatchCount} Items Now`}
+              </span>
             </button>
           </div>
         </div>
       ) : (
         <div className="bg-slate-800/40 border border-dashed border-slate-700 rounded-xl p-8 text-center text-xs text-slate-400 space-y-2">
           <Eye className="w-8 h-8 text-slate-500 mx-auto" />
-          <p>Click "Activate Visual Selector", then hover and click elements on the page to inspect and capture them.</p>
+          <p>
+            Click "Activate Visual Selector", then hover and click any element on the page. Hashira automatically generalizes selectors to capture all matching items in the list!
+          </p>
+        </div>
+      )}
+
+      {/* Instant Extracted Results Table */}
+      {extractedPreview.length > 0 && (
+        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+            <h3 className="text-xs font-semibold text-white flex items-center space-x-1.5 rtl:space-x-reverse">
+              <Layers className="w-4 h-4 text-emerald-400" />
+              <span>Extracted Results ({extractedPreview.length} items)</span>
+            </h3>
+
+            <button
+              onClick={handleExportExtractedExcel}
+              className="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition shadow"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Export to Excel (.xlsx)</span>
+            </button>
+          </div>
+
+          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded-lg">
+            <table className="w-full text-xs text-left rtl:text-right text-slate-300">
+              <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 w-12">#</th>
+                  <th className="px-3 py-2">Extracted Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {extractedPreview.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-700/20">
+                    <td className="px-3 py-2 text-slate-500 font-mono">{idx + 1}</td>
+                    <td className="px-3 py-2 text-white">
+                      {item.title || item.data?.item || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

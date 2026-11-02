@@ -21,6 +21,25 @@ describe('Smart Learning Engine & Selector Resilience', () => {
     expect(res.xpathFallback).toBeDefined();
   });
 
+  it('automatically generalizes numbered IDs to select all repeated items', () => {
+    // Simulate elements with IDs like imgEgrp1, imgEgrp2, imgEgrp3
+    const container = doc.createElement('div');
+    container.innerHTML = `
+      <img id="imgEgrp1" class="item" src="1.jpg" />
+      <img id="imgEgrp2" class="item" src="2.jpg" />
+      <img id="imgEgrp3" class="item" src="3.jpg" />
+    `;
+    doc.body.appendChild(container);
+
+    const target = container.querySelector('#imgEgrp2')!;
+    const res = LearningEngine.createResilientSelector(target, doc);
+
+    expect(res.exactSelector).toBe('#imgEgrp2');
+    expect(res.repeatedSelector).toContain('imgEgrp');
+    expect(res.repeatedMatchCount).toBe(3);
+    expect(res.cssSelector).toBe(res.repeatedSelector);
+  });
+
   it('extracts field values reliably using CSS first and attribute types', () => {
     const cardEl = doc.querySelector('.product-card')!;
     const val = LearningEngine.extractFieldValue(cardEl, {

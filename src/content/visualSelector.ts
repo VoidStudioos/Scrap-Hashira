@@ -4,6 +4,8 @@ import { LearningEngine } from '../engines/learning/learningEngine';
 export interface VisualSelectorConfig {
   onElementSelected: (data: {
     cssSelector: string;
+    exactSelector: string;
+    repeatedSelector: string;
     xpath: string;
     text: string;
     html: string;
@@ -133,16 +135,31 @@ export class VisualElementSelector {
 
     this.highlightAllMatches(matchedElements);
 
-    const sampleValues = matchedElements.slice(0, 5).map((el) => el.textContent?.trim() || '');
+    const sampleValues = matchedElements.slice(0, 5).map((el) => {
+      if (el instanceof HTMLImageElement) return el.src || el.getAttribute('data-src') || '';
+      return el.textContent?.trim() || '';
+    });
 
     this.config.onElementSelected({
       cssSelector,
+      exactSelector: resilient.exactSelector,
+      repeatedSelector: resilient.repeatedSelector,
       xpath,
-      text: target.textContent?.trim() || '',
+      text: target.textContent?.trim() || (target instanceof HTMLImageElement ? target.src : ''),
       html: target.outerHTML,
       matchCount: matchedElements.length,
       sampleValues,
     });
+  }
+
+  highlightBySelector(selector: string): number {
+    try {
+      const matched = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
+      this.highlightAllMatches(matched);
+      return matched.length;
+    } catch {
+      return 0;
+    }
   }
 
   private highlightAllMatches(elements: HTMLElement[]): void {

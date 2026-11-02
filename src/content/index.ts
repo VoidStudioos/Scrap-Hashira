@@ -58,6 +58,16 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         return true;
       }
 
+      case 'UPDATE_SELECTOR_HIGHLIGHT': {
+        if (activeSelector && payload?.selector) {
+          const count = activeSelector.highlightBySelector(payload.selector);
+          sendResponse({ success: true, count });
+          return true;
+        }
+        sendResponse({ success: false });
+        return false;
+      }
+
       case 'EXTRACT_BY_RULES': {
         const { recordSelector, fieldSelectors, jobId } = payload;
         const records = extractRecordsFromDom(recordSelector, fieldSelectors, jobId || '');

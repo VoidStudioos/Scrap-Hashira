@@ -10,6 +10,15 @@ export interface ProfileValidationResult {
   structuralChangeDetected: boolean;
 }
 
+export interface ResilientSelectorResult {
+  cssSelector: string;
+  exactSelector: string;
+  repeatedSelector: string;
+  xpathFallback: string;
+  semanticTag: string;
+  repeatedMatchCount: number;
+}
+
 export class LearningEngine {
   /**
    * Generates a structural DOM fingerprint of the page for resilient matching
@@ -27,73 +36,125 @@ export class LearningEngine {
   }
 
   /**
-   * Generates a robust selector with XPath fallback and semantic resilience
+   * Generates robust selectors (both exact single-element and generalized repeated elements)
    */
-  static createResilientSelector(el: Element, root: Element | Document = document): {
-    cssSelector: string;
-    xpathFallback: string;
-    semanticTag: string;
-  } {
-    // 1. Try id
-    if (el.id && !el.id.match(/\d{4,}/)) {
-      return {
-        cssSelector: `#${el.id}`,
-        xpathFallback: `//*[@id='${el.id}']`,
-        semanticTag: el.tagName.toLowerCase(),
-      };
-    }
+  static createResilientSelector(el: Element, root: Element | Document = document): ResilientSelectorResult {
+    const tag = el.tagName.toLowerCase();
+    let exactSelector = tag;
+    let xpathFallback = `//${tag}`;
 
-    // 2. Try unique attribute like data-testid, itemprop, role
-    for (const attr of ['data-testid', 'data-qa', 'itemprop', 'aria-label']) {
-      const val = el.getAttribute(attr);
-      if (val) {
-        return {
-          cssSelector: `[${attr}="${val}"]`,
-          xpathFallback: `//*[@${attr}='${val}']`,
-          semanticTag: el.tagName.toLowerCase(),
-        };
-      }
-    }
-
-    // 3. Try class combination
-    if (el.className && typeof el.className === 'string') {
-      const classes = el.className
-        .trim()
-        .split(/\s+/)
-        .filter((c) => !c.match(/\d{4,}/) && c.length > 2 && !c.includes(':'));
+    // 1. Exact ID
+    if (el.id) {
+      exactSelector = `#${el.id}`;
+      xpathFallback = `//*[@id='${el.id}']`;
+    } else if (el.className && typeof el.className === 'string') {
+      const classes = el.className.trim().split(/\s+/).filter((c) => c.length > 2 && !c.includes(':'));
       if (classes.length > 0) {
-        const clsSelector = `.${classes.slice(0, 2).join('.')}`;
-        return {
-          cssSelector: clsSelector,
-          xpathFallback: `//*[contains(@class, '${classes[0]}')]`,
-          semanticTag: el.tagName.toLowerCase(),
-        };
+        exactSelector = `${tag}.${classes.slice(0, 2).join('.')}`;
+        xpathFallback = `//*[contains(@class, '${classes[0]}')]`;
       }
     }
 
-    // 4. Hierarchical path
-    const path: string[] = [];
-    let curr: Element | null = el;
-    while (curr && curr !== root && curr !== document.body) {
-      let tag = curr.tagName.toLowerCase();
-      if (curr.parentElement) {
-        const siblings = Array.from(curr.parentElement.children).filter((c) => c.tagName === curr!.tagName);
-        if (siblings.length > 1) {
-          const index = siblings.indexOf(curr) + 1;
-          tag += `:nth-of-type(${index})`;
+    // 2. Derive Repeated Selector (Matching all similar siblings/items on page)
+    const repeated = this.deriveRepeatedSelector(el, root);
+
+    // If a valid repeated selector matching >= 2 elements was found, make it default!
+    const defaultCss = repeated.count > 1 ? repeated.selector : exactSelector;
+
+    return {
+      cssSelector: defaultCss,
+      exactSelector,
+      repeatedSelector: repeated.selector,
+      xpathFallback,
+      semanticTag: tag,
+      repeatedMatchCount: repeated.count,
+    };
+  }
+
+  /**
+   * Derives a generalized selector to match all similar repeated elements in a list/catalog
+   */
+  static deriveRepeatedSelector(el: Element, root: Element | Document = document): { selector: string; count: number } {
+    const tag = el.tagName.toLowerCase();
+    const doc = el.ownerDocument || document;
+
+    // Pattern A: ID with number prefix/suffix (e.g. imgEgrp2, product_1, item-12, row3)
+    if (el.id) {
+      const idPrefixMatch = el.id.match(/^([a-zA-Z_\-]+?)\d+/);
+      if (idPrefixMatch && idPrefixMatch[1] && idPrefixMatch[1].length >= 2) {
+        const candidate = `${tag}[id^="${idPrefixMatch[1]}"]`;
+        try {
+          const matches = doc.querySelectorAll(candidate);
+          if (matches.length > 1) {
+            return { selector: candidate, count: matches.length };
+          }
+        } catch {}
+      }
+
+      const idSuffixMatch = el.id.match(/\d+([a-zA-Z_\-]+)$/);
+      if (idSuffixMatch && idSuffixMatch[1] && idSuffixMatch[1].length >= 2) {
+        const candidate = `${tag}[id$="${idSuffixMatch[1]}"]`;
+        try {
+          const matches = doc.querySelectorAll(candidate);
+          if (matches.length > 1) {
+            return { selector: candidate, count: matches.length };
+          }
+        } catch {}
+      }
+    }
+
+    // Pattern B: Class names
+    if (el.className && typeof el.className === 'string') {
+      const classes = el.className.trim().split(/\s+/).filter((c) => !c.match(/\d{3,}/) && c.length > 2 && !c.includes(':'));
+      for (const cls of classes) {
+        const candidate = `${tag}.${cls}`;
+        try {
+          const matches = doc.querySelectorAll(candidate);
+          if (matches.length > 1) {
+            return { selector: candidate, count: matches.length };
+          }
+        } catch {}
+      }
+    }
+
+    // Pattern C: Parent container repeated children (e.g. .grid > div, ul > li, tr > td)
+    if (el.parentElement) {
+      const parent = el.parentElement;
+      const parentTag = parent.tagName.toLowerCase();
+      const parentClass = typeof parent.className === 'string' && parent.className.trim() ? parent.className.trim().split(/\s+/)[0] : '';
+      
+      const parentPrefix = parentClass && !parentClass.match(/\d{3,}/) ? `.${parentClass}` : parentTag;
+      const candidate = `${parentPrefix} > ${tag}`;
+      try {
+        const matches = doc.querySelectorAll(candidate);
+        if (matches.length > 1) {
+          return { selector: candidate, count: matches.length };
+        }
+      } catch {}
+
+      // Grandparent check (e.g. .catalog-list .item img, table tr td)
+      if (parent.parentElement) {
+        const gParent = parent.parentElement;
+        const gClass = typeof gParent.className === 'string' && gParent.className.trim() ? gParent.className.trim().split(/\s+/)[0] : '';
+        if (gClass && !gClass.match(/\d{3,}/)) {
+          const gCandidate = `.${gClass} ${tag}`;
+          try {
+            const matches = doc.querySelectorAll(gCandidate);
+            if (matches.length > 1) {
+              return { selector: gCandidate, count: matches.length };
+            }
+          } catch {}
         }
       }
-      path.unshift(tag);
-      curr = curr.parentElement;
-      if (path.length > 4) break;
     }
 
-    const cssSelector = path.join(' > ');
-    return {
-      cssSelector,
-      xpathFallback: `//${el.tagName.toLowerCase()}`,
-      semanticTag: el.tagName.toLowerCase(),
-    };
+    // Fallback: tag name
+    try {
+      const tagMatches = doc.querySelectorAll(tag);
+      return { selector: tag, count: tagMatches.length };
+    } catch {
+      return { selector: tag, count: 1 };
+    }
   }
 
   /**
