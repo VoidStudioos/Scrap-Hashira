@@ -1,5 +1,4 @@
 // Smart Learning Engine: Persistent Site Profiles & Selector Resilience
-import { StorageService } from '../../storage/storageService';
 import type { SiteProfile, SelectorRule } from '../../types';
 
 export interface ProfileValidationResult {
@@ -170,6 +169,7 @@ export class LearningEngine {
    * Finds the best matching saved profile for a given URL and validates against current DOM
    */
   static async findAndValidateProfile(url: string, doc: Document = document): Promise<ProfileValidationResult | null> {
+    const { StorageService } = await import('../../storage/storageService');
     const urlObj = new URL(url);
     const domain = urlObj.hostname;
     const profiles = await StorageService.getProfilesForDomain(domain);
@@ -245,6 +245,7 @@ export class LearningEngine {
   }
 
   static async importProfilesFromJson(jsonStr: string): Promise<{ importedCount: number; errors: string[] }> {
+    const { StorageService } = await import('../../storage/storageService');
     const errors: string[] = [];
     let count = 0;
 

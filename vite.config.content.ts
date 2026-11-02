@@ -7,6 +7,9 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  esbuild: {
+    charset: 'ascii',
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: false,
