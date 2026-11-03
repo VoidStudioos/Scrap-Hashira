@@ -9,7 +9,11 @@
     "package": "node scripts/package.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "web": "node scripts/server.cjs",
+    "standalone": "node scripts/server.cjs",
+    "scrape": "node scripts/crawl-negarkhodro.cjs",
+    "bundle": "node scripts/create-zip-bundle.cjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

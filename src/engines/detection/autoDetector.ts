@@ -79,9 +79,9 @@ export class AutoDetector {
     });
 
     // Stage 4: Single Item / Product Detail Page / Article Fallback
-    if (schemas.length === 0) {
-      const detailSchema = this.detectSingleDetailPage(doc);
-      if (detailSchema) schemas.push(detailSchema);
+    const detailSchema = this.detectSingleDetailPage(doc);
+    if (detailSchema) {
+      schemas.push(detailSchema);
     }
 
     // Stage 5: Prominent Links Fallback
@@ -227,6 +227,10 @@ export class AutoDetector {
         const elements = Array.from(doc.querySelectorAll(selector));
         const validCards = elements.filter((el) => {
           if (el.children.length === 0) return false;
+          // Filter out navigation menus, headers, footers, breadcrumbs
+          if (el.closest('nav, [role="navigation"], header, footer, .navbar, .menu, [class*="nav"], [class*="menu"], [class*="breadcrumb"]')) {
+            return false;
+          }
           const text = el.textContent?.trim() || '';
           if (text.length < 4 || text.length > 4000) return false;
           const hasImg = el.querySelector('img, [style*="background-image"]');
