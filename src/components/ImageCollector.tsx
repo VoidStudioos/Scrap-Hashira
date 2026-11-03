@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Image as ImageIcon,
   Download,
@@ -9,6 +9,7 @@ import {
   Pause,
   Layers,
   Sparkles,
+  Scan,
 } from 'lucide-react';
 import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
@@ -16,7 +17,7 @@ import { ImageDownloader } from '../engines/images/imageDownloader';
 import type { ExtractedImage } from '../types';
 
 export const ImageCollector: React.FC = () => {
-  const { currentImages, activeJob, performanceConfig, setPerformanceConfig, loadJobs } = useScraperStore();
+  const { currentImages, activeJob, performanceConfig, setPerformanceConfig, loadJobs, scanActiveTabImages, isScanning } = useScraperStore();
   const [filterType, setFilterType] = useState<string>('all');
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadProgress, setDownloadProgress] = useState<{ completed: number; failed: number; total: number }>({
@@ -24,6 +25,12 @@ export const ImageCollector: React.FC = () => {
     failed: 0,
     total: 0,
   });
+
+  useEffect(() => {
+    if (currentImages.length === 0 && !isScanning) {
+      scanActiveTabImages();
+    }
+  }, []);
 
   const downloader = new ImageDownloader(performanceConfig.maxConcurrentDownloads);
 
@@ -62,7 +69,16 @@ export const ImageCollector: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={scanActiveTabImages}
+            disabled={isScanning}
+            className="flex items-center space-x-1.5 rtl:space-x-reverse bg-slate-800 hover:bg-slate-700 text-rose-300 font-medium px-3 py-2 rounded-lg text-xs border border-rose-500/30 transition shadow-sm disabled:opacity-50"
+          >
+            <Scan className="w-4 h-4 text-rose-400" />
+            <span>{isScanning ? 'Scanning Images...' : 'Scan Active Page Images'}</span>
+          </button>
+
           <button
             onClick={handleStartDownloads}
             disabled={isDownloading || filteredImages.length === 0}
@@ -161,17 +177,21 @@ export const ImageCollector: React.FC = () => {
                 </p>
                 <div className="flex items-center justify-between text-slate-400 text-[10px]">
                   <span>{img.width && img.height ? `${img.width}x${img.height}` : 'Vector/Dynamic'}</span>
-                  <span
-                    className={`font-semibold ${
-                      img.status === 'completed'
-                        ? 'text-emerald-400'
-                        : img.status === 'failed'
-                        ? 'text-rose-400'
-                        : 'text-slate-400'
-                    }`}
+                  <a
+                    href={img.resolvedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={img.fileName}
+                    className="text-rose-400 hover:text-rose-300 font-semibold underline"
+                    onClick={(e) => {
+                      if (typeof chrome !== 'undefined' && chrome.downloads) {
+                        e.preventDefault();
+                        chrome.downloads.download({ url: img.resolvedUrl, filename: `hashira_images/${img.fileName}` });
+                      }
+                    }}
                   >
-                    {img.status}
-                  </span>
+                    Save
+                  </a>
                 </div>
               </div>
             </div>

@@ -168,6 +168,17 @@ export const JobsManager: React.FC = () => {
                 )}
 
                 <button
+                  onClick={() => {
+                    useScraperStore.setState({ activeJob: job });
+                    useScraperStore.getState().setView('export');
+                  }}
+                  className="p-1.5 bg-teal-600/30 text-teal-300 hover:bg-teal-600/50 rounded-lg text-xs font-semibold"
+                  title="Export Job Data"
+                >
+                  Export
+                </button>
+
+                <button
                   onClick={() => handleDelete(job.id)}
                   className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg text-xs"
                   title="Delete Job"

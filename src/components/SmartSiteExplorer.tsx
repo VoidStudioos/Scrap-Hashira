@@ -18,7 +18,7 @@ import { SiteExplorer } from '../engines/explorer/siteExplorer';
 import { sendTabMessage } from '../utils/chromeTab';
 
 export const SmartSiteExplorer: React.FC = () => {
-  const { explorerTree, performanceConfig, setPerformanceConfig, setView } = useScraperStore();
+  const { explorerTree, performanceConfig, setPerformanceConfig, setView, startExplorerCrawlJob } = useScraperStore();
   const [tree, setTree] = useState<DiscoveredUrlNode | null>(explorerTree);
   const [isExploring, setIsExploring] = useState<boolean>(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['categories', 'listings', 'details']));
@@ -63,14 +63,14 @@ export const SmartSiteExplorer: React.FC = () => {
     setTree({ ...tree! });
   };
 
-  const handleStartCrawl = () => {
+  const handleStartCrawl = async () => {
     if (!tree) return;
     const selectedUrls = SiteExplorer.getSelectedUrls(tree);
     if (selectedUrls.length === 0) {
       alert('Please select at least one branch or URL to crawl.');
       return;
     }
-    setView('jobs');
+    await startExplorerCrawlJob(selectedUrls);
   };
 
   return (

@@ -17,6 +17,10 @@ export const Diagnostics: React.FC = () => {
   const [items, setItems] = useState<DiagnosticItem[]>([]);
   const [isRunning, setIsRunning] = useState<boolean>(false);
 
+  useEffect(() => {
+    runDiagnostics();
+  }, []);
+
   const runDiagnostics = async () => {
     setIsRunning(true);
     const results: DiagnosticItem[] = [];

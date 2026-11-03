@@ -11,13 +11,16 @@ import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
 
 export const DetailPageCrawler: React.FC = () => {
-  const { performanceConfig, setPerformanceConfig, activeJob, setView } = useScraperStore();
-  const [detailPattern, setDetailPattern] = useState<string>('/product/*, /item/*, /p/*');
+  const { performanceConfig, setPerformanceConfig, activeJob, setView, startDetailCrawlerJob } = useScraperStore();
+  const [detailPattern, setDetailPattern] = useState<string>('/product/*, /item/*, /p/*, /GetProduct/*');
   const [extractImagesFromDetail, setExtractImagesFromDetail] = useState<boolean>(true);
   const [extractSpecifications, setExtractSpecifications] = useState<boolean>(true);
+  const [isCrawling, setIsCrawling] = useState<boolean>(false);
 
-  const handleStartCrawler = () => {
-    setView('jobs');
+  const handleStartCrawler = async () => {
+    setIsCrawling(true);
+    await startDetailCrawlerJob(detailPattern, extractImagesFromDetail, extractSpecifications);
+    setIsCrawling(false);
   };
 
   return (
@@ -36,10 +39,11 @@ export const DetailPageCrawler: React.FC = () => {
 
         <button
           onClick={handleStartCrawler}
-          className="flex items-center space-x-2 rtl:space-x-reverse bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow"
+          disabled={isCrawling}
+          className="flex items-center space-x-2 rtl:space-x-reverse bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow disabled:opacity-50"
         >
           <Play className="w-4 h-4 fill-current" />
-          <span>Launch Deep Crawler</span>
+          <span>{isCrawling ? 'Crawling Detail Pages...' : 'Launch Deep Crawler'}</span>
         </button>
       </div>
 

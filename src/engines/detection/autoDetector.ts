@@ -550,7 +550,7 @@ export class AutoDetector {
   }
 
   /**
-   * Table detection (Nested, rowspan, colspan, dynamic headers)
+   * Table detection (Nested, rowspan, colspan, dynamic headers, ARIA grids)
    */
   static detectTables(doc: Document, currentUrl: string): ExtractedTable[] {
     const extractedTables: ExtractedTable[] = [];
@@ -594,6 +594,36 @@ export class AutoDetector {
         });
       }
     });
+
+    // Also detect ARIA role tables or div data tables if no standard table detected
+    if (extractedTables.length === 0) {
+      const roleTables = Array.from(doc.querySelectorAll('[role="table"], [role="grid"], .data-table, .table-responsive > div'));
+      roleTables.forEach((tEl, idx) => {
+        const rows = Array.from(tEl.querySelectorAll('[role="row"], .row, tr'));
+        if (rows.length < 2) return;
+        const headerRow = rows[0];
+        const headers = Array.from(headerRow.querySelectorAll('[role="columnheader"], th, td, .header, .cell-header'))
+          .map((th, cIdx) => th.textContent?.trim() || `Column_${cIdx + 1}`);
+        const dataRows: (string | number)[][] = [];
+        for (let r = 1; r < rows.length; r++) {
+          const cells = Array.from(rows[r].querySelectorAll('[role="cell"], [role="gridcell"], td, .cell'));
+          if (cells.length === 0) continue;
+          dataRows.push(cells.map((c) => c.textContent?.trim() || ''));
+        }
+        if (dataRows.length > 0) {
+          extractedTables.push({
+            jobId: '',
+            sourceUrl: currentUrl,
+            tableIndex: idx,
+            title: tEl.getAttribute('aria-label') || `Data Grid #${idx + 1}`,
+            headers: headers.length > 0 ? headers : dataRows[0].map((_, i) => `Col_${i + 1}`),
+            rows: dataRows,
+            hasNestedTables: false,
+            extractedAt: Date.now(),
+          });
+        }
+      });
+    }
 
     return extractedTables;
   }

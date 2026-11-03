@@ -40,6 +40,32 @@ describe('AutoDetector Multi-stage Engine', () => {
     expect(table.rows[0][0]).toBe('HP-BRK-001');
   });
 
+  it('detects ARIA role="grid" tables when no standard <table> is present', () => {
+    const gridHtml = `
+      <div role="grid" aria-label="Product Pricing Matrix">
+        <div role="row">
+          <div role="columnheader">Plan</div>
+          <div role="columnheader">Price</div>
+        </div>
+        <div role="row">
+          <div role="gridcell">Starter</div>
+          <div role="gridcell">Free</div>
+        </div>
+        <div role="row">
+          <div role="gridcell">Pro</div>
+          <div role="gridcell">99000</div>
+        </div>
+      </div>
+    `;
+    const gridDoc = new DOMParser().parseFromString(gridHtml, 'text/html');
+    const tables = AutoDetector.detectTables(gridDoc, 'https://example.com/pricing');
+    expect(tables.length).toBe(1);
+    expect(tables[0].title).toBe('Product Pricing Matrix');
+    expect(tables[0].headers).toEqual(['Plan', 'Price']);
+    expect(tables[0].rows.length).toBe(2);
+    expect(tables[0].rows[0]).toEqual(['Starter', 'Free']);
+  });
+
   it('detects pagination next-button accurately', () => {
     const pagination = AutoDetector.detectPagination(doc);
     expect(pagination).toBeDefined();
