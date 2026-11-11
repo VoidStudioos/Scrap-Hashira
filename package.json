@@ -1,0 +1,47 @@
+{
+  "name": "hashira-scraper",
+  "version": "0.2.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/build.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test core.spec.ts ui.spec.ts semantics.spec.ts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "fixtures": "node tests/fixtures/server.mjs",
+    "package": "node scripts/package.mjs",
+    "pretest:e2e": "node scripts/test-harness.mjs",
+    "test:extension": "playwright test native.spec.ts"
+  },
+  "dependencies": {
+    "dexie": "^4.2.0",
+    "jszip": "^3.10.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "xlsx": "0.18.5",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@tailwindcss/vite": "^4.1.16",
+    "@types/chrome": "^0.1.24",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "esbuild": "^0.25.12",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "fake-indexeddb": "^6.2.4",
+    "globals": "^16.5.0",
+    "jsdom": "^27.1.0",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vite": "^7.2.0",
+    "vitest": "^4.0.0"
+  }
+}

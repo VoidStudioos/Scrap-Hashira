@@ -1,0 +1,305 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/scratch/21986920d851/hashira-scraper/node_modules/.bin/playwright",
+      "test",
+      "native.spec.ts",
+      "--reporter=list,json"
+    ],
+    "configFile": "/workspace/scratch/21986920d851/hashira-scraper/playwright.config.ts",
+    "rootDir": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/21986920d851/hashira-scraper/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/workspace/scratch/21986920d851/hashira-scraper/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e",
+        "snapshotDir": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 90000,
+        "use": {
+          "trace": "retain-on-failure",
+          "actionTimeout": 10000,
+          "launchOptions": {
+            "args": [
+              "--no-sandbox",
+              "--disable-gpu"
+            ]
+          }
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": {
+      "command": "node tests/fixtures/server.mjs",
+      "url": "http://127.0.0.1:4173",
+      "reuseExistingServer": false
+    }
+  },
+  "suites": [
+    {
+      "title": "native.spec.ts",
+      "file": "native.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Native MV3 installation and Chrome API acceptance",
+          "file": "native.spec.ts",
+          "line": 20,
+          "column": 15,
+          "specs": [
+            {
+              "title": "production manifest installs with no required host permissions",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                        "line": 20,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2,
+                      "error": {
+                        "message": "Error: browserType.launchPersistentContext: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\n<launched> pid=50\nCall log:\n\u001b[2m  - <launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\u001b[22m\n\u001b[2m  - <launched> pid=50\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close start>\u001b[22m\n\u001b[2m  - [pid=50] <kill>\u001b[22m\n\u001b[2m  - [pid=50] <will force kill>\u001b[22m\n\u001b[2m  - [pid=50] exception while trying to kill process: Error: kill ESRCH\u001b[22m\n\u001b[2m  - [pid=50] <process did exit: exitCode=null, signal=SIGSEGV>\u001b[22m\n\u001b[2m  - [pid=50] starting temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] finished temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close end>\u001b[22m\n",
+                        "stack": "Error: browserType.launchPersistentContext: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\n<launched> pid=50\nCall log:\n\u001b[2m  - <launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\u001b[22m\n\u001b[2m  - <launched> pid=50\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close start>\u001b[22m\n\u001b[2m  - [pid=50] <kill>\u001b[22m\n\u001b[2m  - [pid=50] <will force kill>\u001b[22m\n\u001b[2m  - [pid=50] exception while trying to kill process: Error: kill ESRCH\u001b[22m\n\u001b[2m  - [pid=50] <process did exit: exitCode=null, signal=SIGSEGV>\u001b[22m\n\u001b[2m  - [pid=50] starting temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] finished temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close end>\u001b[22m\n\n    at /workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts:25:15",
+                        "location": {
+                          "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                          "column": 15,
+                          "line": 25
+                        },
+                        "snippet": "  23 |     const extension = join(temp, 'extension');\n  24 |     await cp(resolve('dist'), extension, { recursive: true });\n> 25 |     context = await chromium.launchPersistentContext(join(temp, 'profile'), {\n     |               ^\n  26 |       executablePath: process.env.HASHIRA_NATIVE_CHROME || undefined,\n  27 |       channel: process.env.HASHIRA_NATIVE_CHROME ? undefined : 'chromium',\n  28 |       headless: true,"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                            "column": 15,
+                            "line": 25
+                          },
+                          "message": "Error: browserType.launchPersistentContext: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\n<launched> pid=50\nCall log:\n\u001b[2m  - <launching> /workspace/scratch/21986920d851/browser-runtime/full-chrome/opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-gpu --enable-unsafe-extension-debugging --disable-extensions-except=/tmp/hashira-native-sYJSny/extension --load-extension=/tmp/hashira-native-sYJSny/extension --user-data-dir=/tmp/hashira-native-sYJSny/profile --remote-debugging-pipe about:blank\u001b[22m\n\u001b[2m  - <launched> pid=50\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close start>\u001b[22m\n\u001b[2m  - [pid=50] <kill>\u001b[22m\n\u001b[2m  - [pid=50] <will force kill>\u001b[22m\n\u001b[2m  - [pid=50] exception while trying to kill process: Error: kill ESRCH\u001b[22m\n\u001b[2m  - [pid=50] <process did exit: exitCode=null, signal=SIGSEGV>\u001b[22m\n\u001b[2m  - [pid=50] starting temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] finished temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=50] <gracefully close end>\u001b[22m\n\n\n  23 |     const extension = join(temp, 'extension');\n  24 |     await cp(resolve('dist'), extension, { recursive: true });\n> 25 |     context = await chromium.launchPersistentContext(join(temp, 'profile'), {\n     |               ^\n  26 |       executablePath: process.env.HASHIRA_NATIVE_CHROME || undefined,\n  27 |       channel: process.env.HASHIRA_NATIVE_CHROME ? undefined : 'chromium',\n  28 |       headless: true,\n    at /workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts:25:15"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-03T00:51:56.328Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                            "line": 20,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/workspace/scratch/21986920d851/hashira-scraper/test-results/native-Native-MV3-installa-0a0d7-o-required-host-permissions/error-context.md"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/workspace/scratch/21986920d851/hashira-scraper/test-results/native-Native-MV3-installa-0a0d7-o-required-host-permissions/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/workspace/scratch/21986920d851/hashira-scraper/test-results/native-Native-MV3-installa-0a0d7-o-required-host-permissions/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                        "column": 15,
+                        "line": 25
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "dadda6b3ddfdf57c4974-7e3abc45705fa64dbdb9",
+              "file": "native.spec.ts",
+              "line": 52,
+              "column": 3
+            },
+            {
+              "title": "native crawler downloads, pauses, resumes and exports associated data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                        "line": 20,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-03T00:51:56.797Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "dadda6b3ddfdf57c4974-a6b79ecb133010d5a7e9",
+              "file": "native.spec.ts",
+              "line": 60,
+              "column": 3
+            },
+            {
+              "title": "worker termination preserves durable queues",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "/workspace/scratch/21986920d851/hashira-scraper/tests/e2e/native.spec.ts",
+                        "line": 20,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-03T00:51:56.797Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "dadda6b3ddfdf57c4974-3e27a67243c4715af509",
+              "file": "native.spec.ts",
+              "line": 106,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-03T00:51:53.758Z",
+    "duration": 3081.633,
+    "expected": 0,
+    "skipped": 2,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

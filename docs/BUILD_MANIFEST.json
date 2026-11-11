@@ -1,0 +1,110 @@
+{
+  "version": "0.2.2",
+  "files": [
+    {
+      "path": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 61013,
+      "sha256": "419951595fa06bd0e769946e60804819cac7fc2d7cddf7541ac9945b122428b8"
+    },
+    {
+      "path": "assets/_commonjsHelpers-Cpj98o6Y.js",
+      "bytes": 236,
+      "sha256": "9625379badd4849610dfe6c15453cdf0c0071264c90eef177307fac094d2aa6c"
+    },
+    {
+      "path": "assets/core-h1OPzfIa.js",
+      "bytes": 103010,
+      "sha256": "a0f372e765e3dec63d17dc523381cc97481a42cc26e0fdedfdd771508c96fcbe"
+    },
+    {
+      "path": "assets/index-BB3L5EIp.js",
+      "bytes": 5373,
+      "sha256": "63f6562defd221c9ddecc5c1a2fc1a990e437f87657d17b6a8dc1d88c0987746"
+    },
+    {
+      "path": "assets/modulepreload-polyfill-B5Qt9EMX.js",
+      "bytes": 711,
+      "sha256": "d2a32840421496e872ade591618d2fa5c33797605d1aec04301717e5a90757d0"
+    },
+    {
+      "path": "assets/style-BrUg8YZ4.js",
+      "bytes": 221779,
+      "sha256": "d0aa9c29a9a85a1682783b7d91a7a83e0b8aacffad9883c0b19b5543b3b9b443"
+    },
+    {
+      "path": "assets/style-DJNfL1Wm.css",
+      "bytes": 20248,
+      "sha256": "840eacf401a067d0c9b38f9d4fe56317a307fed5819c2ba22f0f377c28dee801"
+    },
+    {
+      "path": "assets/verify-y2ZmQnW_.js",
+      "bytes": 2465,
+      "sha256": "c733a6582f0f3a97b78c7b438f9eb6f74c3d0edf7e55a3829715437f3ce81e30"
+    },
+    {
+      "path": "assets/worker-DGd2YlKW.js",
+      "bytes": 496904,
+      "sha256": "053ad1843d205d82862da581d0b63f44602f080ee145c51572cb9a80b9b69641"
+    },
+    {
+      "path": "background.js",
+      "bytes": 33096,
+      "sha256": "4e15ac9311d5d2fddf7b784fb365fb4b436f7cd27947140f07c0153a9b3cf9fa"
+    },
+    {
+      "path": "content.js",
+      "bytes": 33544,
+      "sha256": "cf92a47d0e1704fefe62621d735e141892d5776414182d4f03c41ccdae328337"
+    },
+    {
+      "path": "icons/128.png",
+      "bytes": 722,
+      "sha256": "81f719ebf5d806cebffacd23cc8bcecbd88db2843582941677ca85490244fa25"
+    },
+    {
+      "path": "icons/16.png",
+      "bytes": 173,
+      "sha256": "e601304f836f87bb6ecb3a19dba3d548ae496370ae9053607db2803cd279b425"
+    },
+    {
+      "path": "icons/48.png",
+      "bytes": 291,
+      "sha256": "c358d756d0edf9f8154e52f6a1676771eef5c7d8a4e4c8714b429d53fd5a0509"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 900,
+      "sha256": "21482d5ca42f1a61d4dda8338aafe8b1e1a752f2e927cf383934d69c9cf25edf"
+    },
+    {
+      "path": "offscreen.html",
+      "bytes": 554,
+      "sha256": "f86835b5703135ab7b4a40370e48ddcdf390a666d3f34bc08204b9b881a43dbe"
+    },
+    {
+      "path": "offscreen.js",
+      "bytes": 823,
+      "sha256": "a3cb86509148077a647e14c10ae32fbd9eb4bb2f6af22ad3209c5c3ec605b5e3"
+    },
+    {
+      "path": "popup.html",
+      "bytes": 555,
+      "sha256": "27586f2ddf4b1feb1d98b292e1f40f91f5ecc314f975de623558cb2de8994b4d"
+    },
+    {
+      "path": "popup.js",
+      "bytes": 784,
+      "sha256": "a073a0f4852363e99fe2cb020f53aebd8898cecbd6b289a0f8017ee02541393c"
+    },
+    {
+      "path": "sidepanel.html",
+      "bytes": 795,
+      "sha256": "b28da7afea1b4e4e14cf32e794db0d2231e475c747ba3bf03755da8390ffa5d1"
+    },
+    {
+      "path": "sidepanel.js",
+      "bytes": 46252,
+      "sha256": "757091c4c6356ff40b1644cd5fd650f2e5290f41890eaf81a7943b5af6962ae8"
+    }
+  ]
+}
