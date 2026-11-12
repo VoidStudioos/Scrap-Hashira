@@ -1,3 +1,11 @@
+# 0.3.0 — 2026-11-12
+
+- Preserve selected live tab when starting jobs.
+- Discover and download direct videos, detect media formats from bytes, preserve original GIF animation.
+- Add signature-only TIFF/HEIC/HEIF/JXL preservation and explicit stream limitations.
+- Export observed tree.txt and video metadata/files; show video job counts.
+- See docs/MEDIA_0.3.0.md for exact support and limitations.
+
 # Changelog
 
 ## 0.2.2 — 2026-11-11

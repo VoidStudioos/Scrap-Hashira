@@ -5,7 +5,7 @@ import type { Job, ResourceTask } from '../types';
 import { hasOrigin, offscreenCall } from './browser';
 import { sha256, errorText } from '../utils/core';
 import { safeFilename } from '../security/policy';
-import { readBounded, sniffMime, extensionFor } from '../engines/images/verify';
+import { readBounded, sniffMime, extensionFor, signatureOnly } from '../engines/images/verify';
 import { retryAfter, retryDelay, robotsAllows } from '../engines/crawler/policy';
 export async function saveResource(task: ResourceTask, job: Job) {
   if (!task.hash) return;
@@ -19,7 +19,7 @@ export async function saveResource(task: ResourceTask, job: Job) {
   const folder = task.branchPath?.length ? branchFolder(task.branchPath) + '/' : '';
   const filename =
     task.filename ||
-    `Hashira/${safeFilename(job.name).slice(0, 40)}_${job.id.slice(0, 8)}/${task.kind === 'image' ? 'images' : 'documents'}/${folder}${productName.slice(0, 48)}/${task.id.split(':').pop()?.slice(0, 24)}.${extensionFor(task.mime || '')}`;
+    `Hashira/${safeFilename(job.name).slice(0, 40)}_${job.id.slice(0, 8)}/${task.kind === 'image' ? 'images' : task.kind === 'video' ? 'videos' : 'documents'}/${folder}${productName.slice(0, 48)}/${task.id.split(':').pop()?.slice(0, 24)}.${extensionFor(task.mime || '')}`;
   await db.resources.update(task.id, { state: 'SAVING', filename, blobUrl, error: undefined });
   try {
     const downloadId = await chrome.downloads.download({
@@ -93,9 +93,10 @@ export async function fetchResource(task: ResourceTask, job: Job, owner: string)
     if (
       !mime ||
       (task.kind === 'image' && !mime.startsWith('image/')) ||
+      (task.kind === 'video' && !mime.startsWith('video/')) ||
       (task.kind === 'document' && mime !== 'application/pdf')
     )
-      throw new Error('MIME signature does not match a supported image or PDF');
+      throw new Error('MIME signature does not match a supported image, video or PDF');
     const typed = new Blob([blob], { type: mime });
     const hash = await sha256(typed);
     await db.blobs.put({ hash, blob: typed, mime, size: typed.size });
@@ -104,6 +105,7 @@ export async function fetchResource(task: ResourceTask, job: Job, owner: string)
       state: 'FETCHED',
       hash,
       mime,
+      validation: signatureOnly(mime) ? 'signature-only' : 'decoded',
       size: typed.size,
       ...dimensions,
       owner: undefined,

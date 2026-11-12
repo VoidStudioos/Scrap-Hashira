@@ -6,8 +6,22 @@ const MIME_EXT: Record<string, string> = {
   'image/gif': 'gif',
   'image/svg+xml': 'svg',
   'image/bmp': 'bmp',
+  'image/tiff': 'tiff',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'image/jxl': 'jxl',
+  'image/x-icon': 'ico',
   'application/pdf': 'pdf',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-matroska': 'mkv',
+  'video/x-msvideo': 'avi',
+  'video/ogg': 'ogv',
 };
+export const signatureOnly = (mime: string) =>
+  mime.startsWith('video/') ||
+  ['image/tiff', 'image/heic', 'image/heif', 'image/jxl'].includes(mime);
 export const extensionFor = (mime: string) => MIME_EXT[mime] || 'bin';
 export function sniffMime(bytes: Uint8Array, header = ''): string | undefined {
   const ascii = (start: number, n: number) => String.fromCharCode(...bytes.slice(start, start + n));
@@ -15,8 +29,25 @@ export function sniffMime(bytes: Uint8Array, header = ''): string | undefined {
   if (ascii(0, 8) === '\x89PNG\r\n\x1a\n') return 'image/png';
   if (ascii(0, 6) === 'GIF87a' || ascii(0, 6) === 'GIF89a') return 'image/gif';
   if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return 'image/webp';
+  if (ascii(0, 4) === 'II\x2a\x00' || ascii(0, 4) === 'MM\x00\x2a') return 'image/tiff';
+  if (ascii(0, 4) === '\x00\x00\x01\x00') return 'image/x-icon';
+  if ((bytes[0] === 0xff && bytes[1] === 0x0a) || ascii(4, 8) === 'JXL \r\n\x87\n')
+    return 'image/jxl';
   if (ascii(0, 2) === 'BM') return 'image/bmp';
   if (ascii(4, 4) === 'ftyp' && /avif|avis/.test(ascii(8, 32))) return 'image/avif';
+  if (ascii(4, 4) === 'ftyp') {
+    const brands = ascii(8, 64);
+    if (/heic|heix|hevc|hevx/.test(brands)) return 'image/heic';
+    if (/mif1|msf1/.test(brands)) return 'image/heif';
+    if (brands.startsWith('qt  ')) return 'video/quicktime';
+    if (/isom|iso2|mp41|mp42|avc1|M4V /.test(brands)) return 'video/mp4';
+  }
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'AVI ') return 'video/x-msvideo';
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    if (ascii(0, bytes.length).includes('webm')) return 'video/webm';
+    if (ascii(0, bytes.length).includes('matroska')) return 'video/x-matroska';
+  }
+  if (ascii(0, 4) === 'OggS' && ascii(0, bytes.length).includes('theora')) return 'video/ogg';
   if (ascii(0, 5) === '%PDF-') return 'application/pdf';
   const text = new TextDecoder().decode(bytes.slice(0, 2048)).trim();
   if ((header.includes('svg') || /<svg[\s>]/i.test(text)) && /<svg[\s>]/i.test(text))
@@ -48,7 +79,7 @@ export async function verifyImageBlob(
   blob: Blob,
   mime: string,
 ): Promise<{ width: number; height: number }> {
-  if (!mime.startsWith('image/')) return { width: 0, height: 0 };
+  if (signatureOnly(mime) || !mime.startsWith('image/')) return { width: 0, height: 0 };
   if (mime === 'image/svg+xml') {
     const text = await blob.text();
     const xml = new DOMParser().parseFromString(text, 'image/svg+xml');

@@ -2,7 +2,7 @@ import { captureBranch } from './capture';
 import { deleteLocalJob } from '../storage/jobs';
 import { db, log } from '../storage/db';
 import { analyze, inject } from './browser';
-import { pump } from './scheduler';
+import { checkpoint, pump } from './scheduler';
 import { setJobState, recover } from '../engines/resume';
 import { reconcileDownload } from './downloads';
 import { canonical, validateConfig, inScope } from '../security/policy';
@@ -93,23 +93,40 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
           checkpoint: 0,
           blockedUntil: 0,
         };
-        await db.transaction('rw', db.jobs, db.pages, async () => {
-          await db.jobs.add(job);
-          await db.pages.add({
-            id: job.id + ':' + hashText(start),
-            jobId: job.id,
-            url: start,
-            parentUrl: '',
-            kind: 'page',
-            branchId: config.branches.find((branch) =>
-              inScope(start, origin, { ...config, branches: [branch] }),
-            ),
-            depth: 0,
-            state: 'PENDING',
-            attempts: 0,
-            nextAt: 0,
-          });
-        });
+        const seed = Number.isInteger(msg.tabId) ? await analyze(msg.tabId, config) : undefined;
+        if (
+          seed &&
+          (canonical(seed.url) !== start ||
+            canonical((await chrome.tabs.get(msg.tabId)).url || '') !== start)
+        )
+          throw new Error('The selected tab navigated. Analyze its current page again.');
+        if (seed && (seed.authWall || (seed.status && seed.status >= 400)))
+          throw new Error('The selected page needs login or returned an HTTP error.');
+        await db.transaction(
+          'rw',
+          [db.jobs, db.pages, db.records, db.snapshots, db.resources, db.profiles, db.logs],
+          async () => {
+            await db.jobs.add(job);
+            await db.pages.add({
+              id: job.id + ':' + hashText(start),
+              jobId: job.id,
+              url: start,
+              parentUrl: '',
+              kind: 'page',
+              branchId: config.branches.find((branch) =>
+                inScope(start, origin, { ...config, branches: [branch] }),
+              ),
+              depth: 0,
+              state: 'PENDING',
+              attempts: 0,
+              nextAt: 0,
+            });
+            if (seed) {
+              const first = await db.pages.get(job.id + ':' + hashText(start));
+              if (first) await checkpoint(first, job, seed);
+            }
+          },
+        );
         return job;
       }
       case 'DELETE_JOB':

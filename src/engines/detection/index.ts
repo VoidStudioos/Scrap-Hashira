@@ -1,3 +1,4 @@
+import { discoverVideos } from '../images/video';
 import { analyzeSemantics } from '../semantics';
 import type { Detection, ExtractedRecord, Profile, SchemaCandidate } from '../../types';
 import { adapters } from './adapters';
@@ -386,10 +387,13 @@ export function detect(
       }
     }
   }
+  const videos = discoverVideos(document, url);
+  warnings.push(...videos.filter((v) => v.limitation).map((v) => v.limitation!));
   const semantic = analyzeSemantics(document, url, records, images);
   warnings.push(...semantic.warnings);
   return {
     semantic,
+    videos,
     url,
     title: document.title,
     records,
@@ -401,7 +405,8 @@ export function detect(
     embedded,
     metadata,
     fingerprint: hashText(
-      JSON.stringify(records.map((r) => r.fields)) +
+      JSON.stringify(videos.map((v) => v.url)) +
+        JSON.stringify(records.map((r) => r.fields)) +
         '|' +
         JSON.stringify(images.map((i) => i.url).sort()) +
         '|' +

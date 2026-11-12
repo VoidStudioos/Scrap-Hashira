@@ -1,3 +1,4 @@
+import { extensionFor } from '../engines/images/verify';
 import { branchFolder } from '../engines/semantics/branch';
 import { assertExportReady } from './guard';
 import { semanticFiles } from './semantic';
@@ -109,25 +110,13 @@ self.onmessage = async (event: MessageEvent<{ jobId: string; format: ExportForma
         if (existing) continue;
         const item = await db.blobs.get(r.hash);
         if (!item) continue;
-        const ext =
-          (
-            {
-              'image/jpeg': 'jpg',
-              'image/png': 'png',
-              'image/webp': 'webp',
-              'image/avif': 'avif',
-              'image/gif': 'gif',
-              'image/bmp': 'bmp',
-              'image/svg+xml': 'svg',
-              'application/pdf': 'pdf',
-            } as Record<string, string>
-          )[item.mime] || 'bin';
+        const ext = extensionFor(item.mime);
         const product = records.find((p) => r.recordIds.includes(p.id));
         const group = safeFilename(
           String(product?.fields.product_code || product?.fields.name || 'unassigned'),
         );
         const folder = r.branchPath?.length ? branchFolder(r.branchPath) + '/' : '';
-        const path = `${r.kind === 'image' ? 'images' : 'documents'}/${folder}${group}/${r.hash.slice(0, 16)}.${ext}`;
+        const path = `${r.kind === 'image' ? 'images' : r.kind === 'video' ? 'videos' : 'documents'}/${folder}${group}/${r.hash.slice(0, 16)}.${ext}`;
         paths.set(r.hash, path);
         if (format === 'zip') root.file(path, await item.blob.arrayBuffer());
       }

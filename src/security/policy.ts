@@ -136,6 +136,11 @@ export function redact(value: unknown, depth = 0): unknown {
 }
 export function validateConfig(input: Partial<CrawlConfig>): CrawlConfig {
   const c = { ...DEFAULT_CONFIG, ...input };
+  if (
+    c.maxVideos !== undefined &&
+    (!Number.isFinite(c.maxVideos) || typeof c.maxVideos !== 'number')
+  )
+    throw new Error('Invalid video limit');
   for (const key of [
     'include',
     'exclude',
@@ -153,7 +158,12 @@ export function validateConfig(input: Partial<CrawlConfig>): CrawlConfig {
     )
       throw new Error('Invalid configuration selection: ' + key);
   }
-  for (const key of ['downloadImages', 'downloadDocuments', 'fullCapture'] as const)
+  for (const key of [
+    'downloadImages',
+    'downloadVideos',
+    'downloadDocuments',
+    'fullCapture',
+  ] as const)
     if (typeof c[key] !== 'boolean') throw new Error('Invalid configuration flag: ' + key);
   if (c.exploreOnly !== undefined && typeof c.exploreOnly !== 'boolean')
     throw new Error('Invalid exploration flag');
@@ -168,6 +178,7 @@ export function validateConfig(input: Partial<CrawlConfig>): CrawlConfig {
     ...c,
     maxPages: Math.floor(clamp(c.maxPages, 1, 10000)),
     maxDepth: Math.floor(clamp(c.maxDepth, 0, 15)),
+    maxVideos: Math.floor(clamp(c.maxVideos ?? 100, 0, 1000)),
     maxImages: Math.floor(clamp(c.maxImages, 0, 50000)),
     pageConcurrency: Math.floor(clamp(c.pageConcurrency, 1, 3)),
     downloadConcurrency: Math.floor(clamp(c.downloadConcurrency, 1, 8)),

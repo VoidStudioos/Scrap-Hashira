@@ -81,6 +81,7 @@ for (const file of [
   'INSTALLATION.md',
   'docs/WINDOWS_FA.txt',
   'docs/LIMITATIONS.md',
+  'docs/MEDIA_0.3.0.md',
   'docs/TEST_RESULTS.md',
   'docs/OPTION_RECHECK_FA.md',
   'docs/BUILD_MANIFEST.json',

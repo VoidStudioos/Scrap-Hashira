@@ -47,6 +47,14 @@ export function semanticFiles(
     items.map((f) => ({ ...f, value: f.kind === 'code' ? String(f.value) : f.value }));
   json('classification/fields.json', fields);
   json('classification/tree.json', categories);
+  out.set(
+    'classification/tree.txt',
+    categories.map((c) => '  '.repeat(Math.max(0, c.path.length - 1)) + c.label).join('\n'),
+  );
+  json(
+    'classification/videos.json',
+    pages.flatMap((p) => p.videos || []),
+  );
   json(
     'classification/image-links.json',
     imageLinks.map((l) => ({

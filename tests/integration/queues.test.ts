@@ -560,3 +560,79 @@ it('checkpoints two open branches at one URL and downloads a mislabeled inline G
   expect((await db.blobs.get(assets[0]!.hash!))?.size).toBe(gifBytes.length);
   expect(await db.records.where('jobId').equals(first.jobId).count()).toBe(3);
 });
+
+it('persists bounded video tasks and confirms a real file operation with byte-based extension', async () => {
+  const { checkpoint } = await import('../../src/background/scheduler');
+  await seed();
+  const j = job();
+  j.config.maxVideos = 1;
+  await db.jobs.put(j);
+  const data = detection();
+  data.links = [];
+  data.videos = [1, 2].map((n) => ({
+    url: `https://test.site/asset?id=${n}`,
+    label: 'ویدئو',
+    source: 'video',
+    downloadable: true,
+  }));
+  await checkpoint((await db.pages.get('p'))!, j, data);
+  const tasks = await db.resources.where('jobId').equals('j').toArray();
+  expect(tasks).toHaveLength(1);
+  const raw = Uint8Array.from('\0\0\0\x18ftypisom\0\0\0\0mp42', (c) => c.charCodeAt(0));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () => new Response(raw, { headers: { 'Content-Type': 'application/octet-stream' } }),
+    ),
+  );
+  await fetchResource(tasks[0]!, j, 'test');
+  const saved = await db.resources.get(tasks[0]!.id);
+  expect(saved).toMatchObject({
+    state: 'COMPLETED',
+    mime: 'video/mp4',
+    validation: 'signature-only',
+  });
+  expect(saved?.filename).toMatch(/videos\/.+\.mp4$/);
+  expect((await db.blobs.get(saved!.hash!))?.size).toBe(raw.length);
+});
+
+it('CREATE_JOB checkpoints the selected live tab instead of reopening its URL', async () => {
+  let listener: (
+    message: unknown,
+    sender: unknown,
+    respond: (reply: { ok: boolean; data?: Job; error?: string }) => void,
+  ) => boolean;
+  const event = { addListener: vi.fn() };
+  Object.assign(chrome, {
+    runtime: {
+      id: 'extension',
+      getURL: () => 'chrome-extension://extension/',
+      onInstalled: event,
+      onStartup: event,
+      onMessage: {
+        addListener: vi.fn((fn) => {
+          listener = fn;
+        }),
+      },
+    },
+    alarms: { get: vi.fn(async () => ({ name: 'hashira-tick' })), create: vi.fn(), onAlarm: event },
+  });
+  Object.assign(chrome.downloads, { onChanged: event });
+  await import('../../src/background/index');
+  const data = detection();
+  data.links = [];
+  browser.analyze.mockResolvedValue(data);
+  const createdTabs = vi.mocked(chrome.tabs.create).mock.calls.length;
+  const reply = await new Promise<{ ok: boolean; data?: Job; error?: string }>((resolve) => {
+    listener(
+      { target: 'background', op: 'CREATE_JOB', tabId: 42, url: data.url, config: DEFAULT_CONFIG },
+      { id: 'extension', url: 'chrome-extension://extension/sidepanel.html' },
+      resolve,
+    );
+  });
+  expect(reply.error).toBeUndefined();
+  expect(reply.ok).toBe(true);
+  expect(await db.records.where('jobId').equals(reply.data!.id).count()).toBe(1);
+  expect((await db.pages.where('jobId').equals(reply.data!.id).first())?.state).toBe('DONE');
+  expect(vi.mocked(chrome.tabs.create).mock.calls.length).toBe(createdTabs);
+});

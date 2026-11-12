@@ -76,7 +76,12 @@ export async function captureBranch(
       (a, b) =>
         Number(!!b.recordIds.length) - Number(!!a.recordIds.length) || b.confidence - a.confidence,
     );
-  if (!data.records.length && !data.tables.length && !data.images.length)
+  if (
+    !data.records.length &&
+    !data.tables.length &&
+    !data.images.length &&
+    !data.videos?.some((v) => v.downloadable)
+  )
     throw new Error('No records, tables or content images found in this branch.');
   const id = job.id + ':live:' + hashText(JSON.stringify([start, branch.id, data.fingerprint]));
   await checkpoint(

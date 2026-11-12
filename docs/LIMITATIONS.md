@@ -1,3 +1,7 @@
+# Current media limitations
+
+See [MEDIA_0.3.0.md](MEDIA_0.3.0.md). Direct videos are signature-checked only. Blob/stream assembly and automatic click-only branch traversal are not implemented. Native Windows and authenticated target acceptance remain unverified.
+
 # Known limitations — 0.2.2
 
 1. **Native sign-off remains open.** The current native acceptance retry fails during full Chrome startup with SIGSEGV before the extension loads. A no-extension control and even the browser's version command also crash. Earlier delivery observed a singleton-socket restriction. The precise current startup cause has not been established. Native manifest installation, Chrome Downloads/Side Panel/Offscreen APIs, forced MV3 termination, Chrome restart and Windows interaction remain unverified; the successful headless-shell harness cannot replace these checks.

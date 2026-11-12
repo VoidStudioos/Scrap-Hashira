@@ -34,7 +34,8 @@ export function JobCard({ job, exports = false }: { job: Job; exports?: boolean 
       </p>
       <div className="metrics-strip">
         {data?.processed || 0}/{data?.discovered || 0} {t.pages} · {data?.records || 0} {t.records}{' '}
-        · {data?.downloaded || 0} {t.downloaded}
+        · {data?.downloaded || 0} {t.downloaded}· {data?.videosDownloaded || 0}/{data?.videos || 0}{' '}
+        {settings.language === 'fa' ? 'ویدئو' : 'Videos'}
       </div>
       {data && data.discovered > 0 && (
         <progress max={data.discovered} value={data.processed} aria-label={t.pages} />

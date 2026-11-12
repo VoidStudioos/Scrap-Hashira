@@ -115,6 +115,7 @@ export function App() {
     run(async () => {
       if (!(await request)) throw new Error('Site permission denied');
       const job = await command<Job>('CREATE_JOB', {
+        tabId,
         url,
         name: detection.title || new URL(url).hostname,
         config: nav === 'details' ? { ...config, traverse: 'details' } : config,

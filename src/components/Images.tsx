@@ -73,6 +73,24 @@ export function Images() {
         ))}
       </div>
       {!detection && <p className="empty">{t.empty}</p>}
+      <h3>{settings.language === 'fa' ? 'ویدئوهای شناسایی‌شده' : 'Detected videos'}</h3>
+      <p className="muted">
+        {settings.language === 'fa'
+          ? 'فایل اصلی حفظ می‌شود؛ بررسی امضای فایل به معنی تأیید پخش کامل نیست. جریان‌های تکه‌ای و blob دانلود نمی‌شوند.'
+          : 'Original files are preserved; signature verification does not verify full playback. Segmented streams and page-local blobs are reported only.'}
+      </p>
+      {(detection?.videos || []).map((v) => (
+        <article key={v.url}>
+          <strong>{v.label}</strong>
+          <p className="fine">{v.url.slice(0, 200)}</p>
+          <p>
+            {v.limitation ||
+              (settings.language === 'fa'
+                ? 'آماده برای دانلود با مجوز میزبان'
+                : 'Direct download candidate; host permission required')}
+          </p>
+        </article>
+      ))}
       <Scope />
     </section>
   );

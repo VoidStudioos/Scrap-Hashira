@@ -69,7 +69,9 @@ export async function checkpoint(task: PageTask, job: Job, data: Detection) {
   const taskBranch = branchForTask(task, job, allPages);
   const branchPath = manual
     ? data.semantic?.categories.find((category) => category.id === task.branchId)?.path
-    : undefined;
+    : data.semantic?.categories
+        .filter((c) => c.source === 'breadcrumb')
+        .sort((a, b) => b.path.length - a.path.length)[0]?.path;
   for (const link of links) {
     if (
       (job.config.traverse === 'details' && !['detail', 'pagination'].includes(link.kind)) ||
@@ -149,6 +151,21 @@ export async function checkpoint(task: PageTask, job: Job, data: Detection) {
               nextAt: now,
             },
       );
+    }
+  if (!job.config.exploreOnly && job.config.downloadVideos)
+    for (const video of data.videos || []) {
+      if (!video.downloadable || byUrl.has(video.url)) continue;
+      resources.push({
+        id: job.id + ':video:' + hashText(video.url),
+        jobId: job.id,
+        url: video.url,
+        kind: 'video',
+        recordIds: [],
+        branchPath,
+        state: 'PENDING',
+        attempts: 0,
+        nextAt: now,
+      });
     }
   if (!manual && job.config.downloadDocuments)
     for (const link of data.links.filter(
@@ -230,6 +247,7 @@ export async function checkpoint(task: PageTask, job: Job, data: Detection) {
         html: data.html,
         text: data.text,
         metadata: data.metadata,
+        videos: data.videos,
         semantic: data.semantic
           ? {
               ...data.semantic,
@@ -263,9 +281,14 @@ export async function checkpoint(task: PageTask, job: Job, data: Detection) {
         0,
         job.config.maxImages - freshResources.filter((r) => r.kind === 'image').length,
       );
+      let videoSlots = Math.max(
+        0,
+        (job.config.maxVideos ?? 100) - freshResources.filter((r) => r.kind === 'video').length,
+      );
       if (resources.length)
         for (const resource of resources) {
           const current = await db.resources.get(resource.id);
+          if (!current && resource.kind === 'video' && videoSlots-- <= 0) continue;
           if (!current && resource.kind === 'image' && imageSlots-- <= 0) continue;
           await db.resources.put(
             current

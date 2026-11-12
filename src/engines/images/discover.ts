@@ -4,7 +4,9 @@ export function imageUrl(value: string, base: string): string | undefined {
   value = value.trim();
   if (!value) return;
   if (
-    /^data:image\/(png|jpe?g|webp|avif|gif|bmp|svg\+xml)[;,]/i.test(value) &&
+    /^data:image\/(png|apng|jpe?g|webp|avif|gif|bmp|tiff?|heic|heif|jxl|x-icon|vnd.microsoft.icon|svg\+xml)[;,]/i.test(
+      value,
+    ) &&
     value.length < 2_000_000
   )
     return value;
@@ -117,7 +119,10 @@ export function discoverImages(
     ...document.querySelectorAll('a[href],meta[property="og:image"],meta[name="twitter:image"]'),
   ].slice(0, 10000)) {
     const raw = el.getAttribute('href') || el.getAttribute('content') || '';
-    if (el.tagName === 'META' || /\.(jpe?g|png|webp|avif|gif|bmp|svg)(?:\?|$)/i.test(raw))
+    if (
+      el.tagName === 'META' ||
+      /\.(jpe?g|png|apng|webp|avif|gif|bmp|svg|tiff?|heic|heif|jxl|ico)(?:\?|$)/i.test(raw)
+    )
       add(raw, 'gallery', el);
   }
   const walker = document.createTreeWalker(

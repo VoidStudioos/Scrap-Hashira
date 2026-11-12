@@ -2,11 +2,11 @@
 
 A local-first, multi-site Chrome Manifest V3 extension with a React side panel, generic rendered-DOM extraction, user-corrected site profiles, scoped crawling, image-file downloads and portable exports.
 
-**Version 0.2.2 — branch capture preview release.** Source and production bundles are supplied. Core/browser-harness tests pass; native extension installation, real Chrome Downloads callbacks and forced MV3 worker termination still require the included acceptance suite on a full desktop Chrome/Chromium installation. This is not a claim of completed production certification.
+**Version 0.3.0 — branch capture preview release.** Source and production bundles are supplied. Core/browser-harness tests pass; native extension installation, real Chrome Downloads callbacks and forced MV3 worker termination still require the included acceptance suite on a full desktop Chrome/Chromium installation. This is not a claim of completed production certification.
 
 ## Install on Windows
 
-1. Extract `Hashira_Scraper_v0.2.2_Chrome.zip` to a permanent folder.
+1. Extract `Hashira_Scraper_v0.3.0_Chrome.zip` to a permanent folder.
 2. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**.
 3. Select the folder containing `manifest.json` (the `hashira-scraper-chrome` folder).
 4. Pin Hashira Scraper, open an authorized website and click **Open workspace**.

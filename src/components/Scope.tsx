@@ -141,22 +141,28 @@ export function Scope() {
         ))}
       </div>
       <div className="switches">
-        {(['downloadImages', 'downloadDocuments', 'fullCapture'] as const).map((key) => (
-          <label className="check" key={key}>
-            <input
-              type="checkbox"
-              checked={config[key]}
-              onChange={(e) => change(key, e.target.checked)}
-            />
-            {key === 'downloadImages'
-              ? t.images
-              : key === 'fullCapture'
-                ? t.full
-                : settings.language === 'fa'
-                  ? 'اسناد PDF مجاز'
-                  : 'Accessible PDF documents'}
-          </label>
-        ))}
+        {(['downloadImages', 'downloadVideos', 'downloadDocuments', 'fullCapture'] as const).map(
+          (key) => (
+            <label className="check" key={key}>
+              <input
+                type="checkbox"
+                checked={config[key]}
+                onChange={(e) => change(key, e.target.checked)}
+              />
+              {key === 'downloadVideos'
+                ? settings.language === 'fa'
+                  ? 'دانلود ویدئوهای مستقیم'
+                  : 'Download direct videos'
+                : key === 'downloadImages'
+                  ? t.images
+                  : key === 'fullCapture'
+                    ? t.full
+                    : settings.language === 'fa'
+                      ? 'اسناد PDF مجاز'
+                      : 'Accessible PDF documents'}
+            </label>
+          ),
+        )}
       </div>
       <details>
         <summary>{settings.language === 'fa' ? 'فیلترهای URL و API' : 'URL filters & API'}</summary>

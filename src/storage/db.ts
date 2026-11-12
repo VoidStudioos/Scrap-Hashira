@@ -63,6 +63,8 @@ export async function stats(jobId?: string) {
     processed: pages.filter((p) => p.state === 'DONE').length,
     records,
     tables: snapshots.reduce((n, p) => n + p.tables.length, 0),
+    videosDownloaded: resources.filter((r) => r.kind === 'video' && r.state === 'COMPLETED').length,
+    videos: resources.filter((r) => r.kind === 'video').length,
     images: resources.filter((r) => r.kind === 'image').length,
     downloaded: resources.filter((r) => r.kind === 'image' && r.state === 'COMPLETED').length,
     failed: resources.filter((r) => r.state === 'FAILED' || r.state === 'BLOCKED').length,

@@ -53,6 +53,13 @@ export interface ImageCandidate {
   recordIds: string[];
   alternatives: string[];
 }
+export interface VideoCandidate {
+  url: string;
+  label: string;
+  source: string;
+  downloadable: boolean;
+  limitation?: string;
+}
 export interface TableData {
   id: string;
   caption: string;
@@ -82,6 +89,7 @@ export interface Detection {
   title: string;
   records: ExtractedRecord[];
   images: ImageCandidate[];
+  videos?: VideoCandidate[];
   tables: TableData[];
   links: DiscoveredLink[];
   candidates: SchemaCandidate[];
@@ -118,6 +126,8 @@ export interface CrawlConfig {
   branches: string[];
   fullCapture: boolean;
   downloadImages: boolean;
+  downloadVideos?: boolean;
+  maxVideos?: number;
   downloadDocuments: boolean;
   scrollSteps: number;
   loadMoreClicks: number;
@@ -215,6 +225,7 @@ export interface SemanticAnalysis {
   warnings: string[];
 }
 export interface PageSnapshot {
+  videos?: VideoCandidate[];
   semantic?: SemanticAnalysis;
   id: string;
   jobId: string;
@@ -235,7 +246,8 @@ export interface ResourceTask {
   id: string;
   jobId: string;
   url: string;
-  kind: 'image' | 'document';
+  kind: 'image' | 'document' | 'video';
+  validation?: 'decoded' | 'signature-only';
   recordIds: string[];
   branchPath?: string[];
   state: ResourceState;
@@ -296,6 +308,8 @@ export const DEFAULT_CONFIG: CrawlConfig = {
   branches: [],
   fullCapture: false,
   downloadImages: true,
+  downloadVideos: true,
+  maxVideos: 100,
   downloadDocuments: false,
   scrollSteps: 0,
   loadMoreClicks: 0,
