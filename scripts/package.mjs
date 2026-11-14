@@ -22,6 +22,7 @@ async function walk(dir) {
       ].includes(entry.name)
     )
       continue;
+    if (/^\.env(?:\.|$)/.test(entry.name) || /\.(pem|key)$/i.test(entry.name)) throw new Error('Refusing to package potential secret file: ' + entry.name);
     const p = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...(await walk(p)));
     else if (entry.isFile()) out.push(p);
@@ -71,14 +72,17 @@ await writeFile(
   join(root, 'docs', 'BUILD_MANIFEST.json'),
   JSON.stringify(manifest, null, 2) + '\n',
 );
+const zipOptions = { date: new Date('2020-01-01T00:00:00Z'), createFolders: false, unixPermissions: 0o100644 };
 const chrome = new JSZip();
 for (const file of distFiles)
   chrome.file(
     'hashira-scraper-chrome/' + relative(join(root, 'dist'), file).replaceAll('\\', '/'),
     await readFile(file),
+    zipOptions,
   );
 for (const file of [
   'INSTALLATION.md',
+  'DEPLOYMENT_FA.md',
   'docs/WINDOWS_FA.txt',
   'docs/LIMITATIONS.md',
   'docs/MEDIA_0.3.0.md',
@@ -86,7 +90,7 @@ for (const file of [
   'docs/OPTION_RECHECK_FA.md',
   'docs/BUILD_MANIFEST.json',
 ])
-  chrome.file(relative(root, join(root, file)), await readFile(join(root, file)));
+  chrome.file(relative(root, join(root, file)), await readFile(join(root, file)), zipOptions);
 const chromeName = 'Hashira_Scraper_v' + version + '_Chrome.zip';
 await writeFile(
   join(artifacts, chromeName),
@@ -97,10 +101,14 @@ await writeFile(
   }),
 );
 const complete = new JSZip();
-for (const file of await walk(root))
+const sourceRoots = ['src', 'public', 'scripts', 'tests', 'docs', 'dist'];
+const rootFiles = ['.gitignore', '.prettierignore', '.prettierrc.json', '.nvmrc', 'package.json', 'package-lock.json', 'manifest.json', 'tsconfig.json', 'vite.config.ts', 'vitest.config.ts', 'playwright.config.ts', 'eslint.config.js', 'popup.html', 'sidepanel.html', 'offscreen.html', 'README.md', 'ARCHITECTURE.md', 'INSTALLATION.md', 'TESTING.md', 'SECURITY.md', 'CHANGELOG.md', 'LICENSE', 'THIRD_PARTY_NOTICES.txt', 'DEPLOYMENT_FA.md'];
+const sourceFiles = [...rootFiles.map(file => join(root, file)), ...(await Promise.all(sourceRoots.map(dir => walk(join(root, dir))))).flat()].sort();
+for (const file of sourceFiles)
   complete.file(
     'hashira-scraper/' + relative(root, file).replaceAll('\\', '/'),
     await readFile(file),
+    zipOptions,
   );
 const sourceName = 'Hashira_Scraper_v' + version + '_Complete.zip';
 await writeFile(

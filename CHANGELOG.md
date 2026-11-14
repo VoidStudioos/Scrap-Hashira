@@ -1,3 +1,10 @@
+# 0.3.1 — 2026-11-14
+
+- Add portable fail-fast release command, Node/npm constraints and Persian deployment guide.
+- Repair unavailable tinyglobby 0.2.27 tarball by locking an explicit 0.2.17 override; verify with clean install and suite.
+- Deterministic ZIP timestamps, source allowlist and archive/hash/runtime inventory validation.
+- No new scraping capabilities; 0.3.0 media and interaction limitations still apply.
+
 # 0.3.0 — 2026-11-12
 
 - Preserve selected live tab when starting jobs.
