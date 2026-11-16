@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   ExternalLink,
   Store,
+  MousePointerClick,
+  ArrowRightCircle,
 } from 'lucide-react';
 import { useScraperStore } from '../store/useScraperStore';
 import { I18nManager } from '../localization/i18n';
@@ -24,10 +26,14 @@ export const OneClickScraper: React.FC = () => {
     scanActiveTab,
     openDemoPage,
     startOneClickJob,
+    clickNextPage,
     setView,
   } = useScraperStore();
 
   const [selectedSchemaIndex, setSelectedSchemaIndex] = useState<number>(0);
+  const [autoPaginate, setAutoPaginate] = useState<boolean>(true);
+  const [maxPages, setMaxPages] = useState<number>(5);
+  const [clickStatus, setClickStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (detectedSchemas.length === 0 && !isScanning) {
@@ -39,8 +45,23 @@ export const OneClickScraper: React.FC = () => {
 
   const handleStart = async () => {
     if (!activeSchema) return;
-    await startOneClickJob(activeSchema);
+    await startOneClickJob(activeSchema, {
+      autoPaginate,
+      maxPages,
+      pageDelayMs: 1500,
+    });
     setView('dashboard');
+  };
+
+  const handleTestClickNext = async () => {
+    setClickStatus('در حال کلیک روی دکمه صفحه بعد...');
+    const res = await clickNextPage();
+    if (res.success) {
+      setClickStatus('کلیک خودکار با موفقیت انجام شد!');
+    } else {
+      setClickStatus('دکمه صفحه بعد در این صفحه یافت نشد یا به انتهای صفحات رسیده‌اید.');
+    }
+    setTimeout(() => setClickStatus(null), 3000);
   };
 
   return (
@@ -196,6 +217,54 @@ export const OneClickScraper: React.FC = () => {
                   <Play className="w-4 h-4 fill-current" />
                   <span>{I18nManager.t('startScraping')}</span>
                 </button>
+              </div>
+
+              {/* Pagination & Auto-Click Next Page Control */}
+              <div className="bg-slate-900/80 border border-slate-700/80 rounded-lg p-3 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoPaginate}
+                      onChange={(e) => setAutoPaginate(e.target.checked)}
+                      className="accent-teal-500 rounded"
+                    />
+                    <span className="font-semibold text-slate-200">
+                      کلیک خودکار و رفتن به صفحات بعد (Auto-Click & Paginate)
+                    </span>
+                  </label>
+
+                  <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse">
+                      <span className="text-slate-400">حداکثر صفحات:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={maxPages}
+                        onChange={(e) => setMaxPages(parseInt(e.target.value, 10) || 1)}
+                        disabled={!autoPaginate}
+                        className="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-center text-teal-300 font-mono disabled:opacity-40"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestClickNext}
+                      className="flex items-center space-x-1 rtl:space-x-reverse bg-slate-800 hover:bg-slate-700 text-teal-300 px-2.5 py-1 rounded border border-teal-500/30 text-[11px] transition"
+                      title="یکبار کلیک تستی روی دکمه صفحه بعد در تب فعال"
+                    >
+                      <MousePointerClick className="w-3.5 h-3.5" />
+                      <span>تست کلیک صفحه بعد</span>
+                    </button>
+                  </div>
+                </div>
+
+                {clickStatus && (
+                  <p className="text-[11px] text-teal-400 font-medium pt-1 animate-pulse">
+                    {clickStatus}
+                  </p>
+                )}
               </div>
 
               {/* Detected Fields Pill list */}

@@ -59,7 +59,11 @@ export interface ScraperState {
   scanActiveTab: () => Promise<void>;
   scanActiveTabImages: () => Promise<void>;
   openDemoPage: () => void;
-  startOneClickJob: (schema: CandidateSchema) => Promise<void>;
+  startOneClickJob: (
+    schema: CandidateSchema,
+    options?: { autoPaginate?: boolean; maxPages?: number; pageDelayMs?: number }
+  ) => Promise<void>;
+  clickNextPage: () => Promise<{ success: boolean; targetUrl?: string }>;
   startExplorerCrawlJob: (urls: string[]) => Promise<void>;
   startDetailCrawlerJob: (pattern: string, extractImages: boolean, extractSpecs: boolean) => Promise<void>;
   pauseJob: (id: string) => Promise<void>;
@@ -308,25 +312,62 @@ export const useScraperStore = create<ScraperState>((set, get) => ({
     }
   },
 
-  startOneClickJob: async (schema: CandidateSchema) => {
+  startOneClickJob: async (
+    schema: CandidateSchema,
+    options?: { autoPaginate?: boolean; maxPages?: number; pageDelayMs?: number }
+  ) => {
     const tab = await getActiveTab();
     const url = tab?.url || 'https://example.com';
-    const job = await StorageService.createJob(url, `Scrape: ${schema.title}`, get().performanceConfig);
+    const autoPaginate = options?.autoPaginate ?? false;
+    const maxPages = options?.maxPages || 5;
+    const pageDelayMs = options?.pageDelayMs || 1500;
+
+    const jobName = autoPaginate
+      ? `Multi-Page Scrape: ${schema.title} (up to ${maxPages} pages)`
+      : `Scrape: ${schema.title}`;
+
+    const job = await StorageService.createJob(url, jobName, get().performanceConfig);
 
     set({ activeJob: job });
     await StorageService.updateJobState(job.id, 'RUNNING');
 
-    const res = await sendTabMessage<any[]>('EXTRACT_BY_RULES', {
-      recordSelector: schema.recordSelector,
-      fieldSelectors: schema.fields,
-      jobId: job.id,
-    });
+    try {
+      let res: any;
+      if (autoPaginate) {
+        res = await sendTabMessage<any>('AUTO_EXTRACT_AND_PAGINATE', {
+          recordSelector: schema.recordSelector,
+          fieldSelectors: schema.fields,
+          jobId: job.id,
+          maxPages,
+          pageDelayMs,
+        });
+      } else {
+        res = await sendTabMessage<any[]>('EXTRACT_BY_RULES', {
+          recordSelector: schema.recordSelector,
+          fieldSelectors: schema.fields,
+          jobId: job.id,
+        });
+      }
 
-    if (res && res.success && res.data) {
-      await StorageService.addRecords(res.data);
-      await StorageService.updateJobState(job.id, 'COMPLETED');
+      if (res && res.success && res.data) {
+        await StorageService.addRecords(res.data);
+        await StorageService.updateJobState(job.id, 'COMPLETED');
+      } else {
+        await StorageService.updateJobState(job.id, 'FAILED', res?.error || 'No records extracted');
+      }
+    } catch (err: any) {
+      await StorageService.updateJobState(job.id, 'FAILED', err.message);
+    } finally {
       await get().loadJobs();
     }
+  },
+
+  clickNextPage: async () => {
+    const res = await sendTabMessage<any>('CLICK_NEXT_PAGE');
+    return {
+      success: Boolean(res?.success),
+      targetUrl: res?.targetUrl,
+    };
   },
 
   pauseJob: async (id: string) => {

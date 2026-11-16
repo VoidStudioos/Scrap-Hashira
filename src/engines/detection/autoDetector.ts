@@ -1,5 +1,6 @@
 // Multi-stage Automatic Data Detection Engine
 import type { ExtractedTable } from '../../types';
+import { PaginationController } from '../crawler/paginationController';
 
 export interface DetectedField {
   name: string;
@@ -632,34 +633,12 @@ export class AutoDetector {
    * Pagination detection
    */
   static detectPagination(doc: Document): CandidateSchema['pagination'] | undefined {
-    const nextBtn = doc.querySelector(
-      'a[rel="next"], [aria-label*="next" i], [class*="pagination-next" i], [class*="btn-next" i], a:contains("Next"), a:contains("بعدی")'
-    );
-    if (nextBtn) {
-      return {
-        type: 'next_button',
-        selector: this.deriveOptimalSelector(nextBtn, 'a[rel="next"]'),
-      };
-    }
+    const info = PaginationController.detectPagination(doc);
+    if (info.type === 'none') return undefined;
 
-    const loadMoreBtn = doc.querySelector(
-      'button[class*="load-more" i], a[class*="load-more" i], button:contains("Load More"), button:contains("بارگذاری بیشتر")'
-    );
-    if (loadMoreBtn) {
-      return {
-        type: 'load_more',
-        selector: this.deriveOptimalSelector(loadMoreBtn, 'button.load-more'),
-      };
-    }
-
-    const numbered = doc.querySelector('ul[class*="pagination" i], nav[class*="pagination" i], .pager');
-    if (numbered) {
-      return {
-        type: 'numbered',
-        selector: this.deriveOptimalSelector(numbered, 'ul.pagination'),
-      };
-    }
-
-    return undefined;
+    return {
+      type: info.type,
+      selector: info.targetElement ? this.deriveOptimalSelector(info.targetElement, info.type === 'load_more' ? 'button.load-more' : 'a[rel="next"]') : undefined,
+    };
   }
 }

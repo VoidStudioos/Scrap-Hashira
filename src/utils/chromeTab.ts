@@ -83,7 +83,7 @@ export async function ensureContentScriptReady(tabId: number): Promise<boolean> 
 export async function sendTabMessage<T = any>(
   action: string,
   payload?: any
-): Promise<{ success: boolean; data?: T; count?: number; items?: any[]; error?: string }> {
+): Promise<{ success: boolean; data?: T; count?: number; items?: any[]; error?: string; [key: string]: any }> {
   const tab = await getActiveTab();
   if (!tab || !tab.id) {
     return { success: false, error: 'NO_ACTIVE_TAB' };
