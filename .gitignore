@@ -3,3 +3,4 @@ dist/
 *.log
 .DS_Store
 hashira-scraper-v2.0.0.zip
+outputs/
