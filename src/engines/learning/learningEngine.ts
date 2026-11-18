@@ -1,5 +1,6 @@
 // Smart Learning Engine: Persistent Site Profiles & Selector Resilience
 import type { SiteProfile, SelectorRule } from '../../types';
+import { DataNormalizer } from '../normalization/dataNormalizer';
 
 export interface ProfileValidationResult {
   profile: SiteProfile;
@@ -324,8 +325,15 @@ export class LearningEngine {
     }
 
     // Text extraction
+    // If element contains child elements, use DataNormalizer.cleanHtmlToText to ensure block tags
+    // (p, div, li, h1-h6, tr, td, br) don't fuse adjacent words together (e.g. "TitleDescription" or "ایسیودارای")
+    if (el.children && el.children.length > 0) {
+      const clean = DataNormalizer.cleanHtmlToText(el.innerHTML);
+      if (clean) return clean;
+    }
+
     const text = el.textContent?.trim();
-    if (text) return text;
+    if (text) return DataNormalizer.decodeHtmlEntities(text);
 
     // Fallbacks if textContent is empty (e.g. icon or image inside link)
     const imgInside = el.querySelector('img');

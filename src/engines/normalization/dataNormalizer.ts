@@ -17,27 +17,135 @@ export class DataNormalizer {
   };
 
   /**
+   * Decodes all HTML entities (named, decimal, hex)
+   */
+  static decodeHtmlEntities(text: string): string {
+    if (!text) return '';
+    return text
+      // Named entities
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&zwnj;/gi, '\u200c')
+      .replace(/&zwj;/gi, '\u200d')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&diams;/gi, '♦')
+      .replace(/&bull;/gi, '•')
+      .replace(/&hellip;/gi, '…')
+      .replace(/&ndash;/gi, '–')
+      .replace(/&mdash;/gi, '—')
+      .replace(/&laquo;/gi, '«')
+      .replace(/&raquo;/gi, '»')
+      .replace(/&copy;/gi, '©')
+      .replace(/&reg;/gi, '®')
+      .replace(/&trade;/gi, '™')
+      // Numeric decimal entities (e.g. &#1606;)
+      .replace(/&#(\d+);/g, (_, dec) => {
+        try {
+          return String.fromCharCode(parseInt(dec, 10));
+        } catch {
+          return _;
+        }
+      })
+      // Numeric hex entities (e.g. &#x0646;)
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+        try {
+          return String.fromCharCode(parseInt(hex, 16));
+        } catch {
+          return _;
+        }
+      });
+  }
+
+  /**
+   * Intelligently extracts readable, formatted text from raw HTML:
+   * - Eliminates word fusing caused by unclosed tags or adjacent block elements
+   * - Strips scripts, styles, noscript, and SVG tags
+   * - Treats block elements (p, div, li, h1-h6, tr, td, br, etc.) as clean linebreaks
+   * - Decodes all HTML entities
+   * - Normalizes Persian / Arabic characters and ZWNJ
+   */
+  static cleanHtmlToText(rawHtml: string): string {
+    if (!rawHtml) return '';
+
+    let html = rawHtml;
+
+    // 1. Remove script, style, noscript, svg blocks entirely
+    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    html = html.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
+    html = html.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
+
+    // 2. Convert explicit break tags to newline
+    html = html.replace(/<br\s*\/?>/gi, '\n');
+
+    // 3. Convert block level elements (opening or closing) to newline
+    // Handles unclosed <p>, <div>, <li>, <h3>, <tr>, <td>, etc. without fusing words
+    html = html.replace(/<\/?(?:p|div|section|article|main|header|footer|h[1-6]|li|tr|th|td|blockquote|hr)\b[^>]*>/gi, '\n');
+
+    // 4. Strip any remaining inline tags (span, strong, em, a, b, i) by replacing with space
+    // to ensure adjacent inline words never get glued together
+    html = html.replace(/<[^>]+>/g, ' ');
+
+    // 5. Decode all HTML entities
+    html = this.decodeHtmlEntities(html);
+
+    // 6. Normalize Persian/Arabic characters
+    html = html
+      .replace(/\u0643/g, '\u06a9') // Arabic Kaf -> Persian Kaf
+      .replace(/[\u0649\u064a]/g, '\u06cc') // Arabic Yeh -> Persian Yeh
+      .replace(/\u200c{2,}/g, '\u200c'); // Collapse multiple ZWNJ into one
+
+    // 7. Clean up spaces around newlines and collapse multiple blank lines
+    const lines = html
+      .split(/\r?\n/)
+      .map((line) => {
+        return line
+          .replace(/[ \t\u00a0\u200b]+/g, ' ')
+          .replace(/^[ \t]+|[ \t]+$/g, '');
+      })
+      .filter((line) => line.length > 0);
+
+    return lines.join('\n');
+  }
+
+  /**
    * Normalizes Persian and Arabic text:
    * - Arabic Kaf (ك) -> Persian Kaf (ک)
    * - Arabic Yeh (ي, ى) -> Persian Yeh (ی)
    * - Persian/Arabic numbers to ASCII numbers
-   * - Collapses whitespaces and removes redundant zero-width characters
+   * - Preserves ZWNJ (\u200c) for Persian words like 'می‌شود', 'نرم‌افزار'
+   * - Decodes HTML entities
+   * - Preserves linebreaks if preserveLines is true
    */
-  static normalizeText(text: string): string {
+  static normalizeText(text: string, options?: { preserveLines?: boolean }): string {
     if (!text) return '';
 
-    let res = text
+    // Decode entities first if present
+    let res = this.decodeHtmlEntities(text)
       // Replace Arabic kaf
       .replace(/\u0643/g, '\u06a9')
       // Replace Arabic yeh
       .replace(/[\u0649\u064a]/g, '\u06cc')
       // Normalize Persian numbers and Arabic numbers to Latin digits
       .replace(/[۰-۹٠-٩]/g, (char) => this.DIGIT_MAP[char] || char)
-      // Normalize whitespaces: tabs, non-breaking spaces, newlines to single space
-      .replace(/[\s\u00a0\u200b]+/g, ' ')
-      .trim();
+      // Collapse multiple ZWNJ into one
+      .replace(/\u200c{2,}/g, '\u200c')
+      // Remove ZWNJ at boundary of whitespace or punctuation
+      .replace(/[\s\u00a0\u200b]\u200c|\u200c[\s\u00a0\u200b]/g, ' ');
 
-    return res;
+    if (options?.preserveLines) {
+      const lines = res
+        .split(/\r?\n/)
+        .map((line) => line.replace(/[ \t\u00a0\u200b]+/g, ' ').trim())
+        .filter((line) => line.length > 0);
+      return lines.join('\n');
+    }
+
+    // Collapse all whitespace into single space
+    return res.replace(/[\s\u00a0\u200b]+/g, ' ').trim();
   }
 
   /**
@@ -57,7 +165,6 @@ export class DataNormalizer {
     else if (/£|gbp|pound/i.test(normalizedStr)) currency = 'GBP';
 
     // Extract numbers, removing commas and periods used as thousands separators
-    // Handle formats like "1,250,000" or "45.99"
     const cleaned = normalizedStr.replace(/,/g, '');
     const numMatch = cleaned.match(/(\d+(?:\.\d+)?)/);
 
@@ -71,12 +178,13 @@ export class DataNormalizer {
   }
 
   /**
-   * Normalizes product codes/SKUs.
+   * Normalizes product codes/SKUs without deleting Persian alphanumeric characters.
    */
   static normalizeProductCode(code: string): string {
     if (!code) return '';
     const norm = this.normalizeText(code);
-    return norm.replace(/[^a-zA-Z0-9\-_]/g, '').toUpperCase();
+    // Keep Latin, Persian, digits, hyphens, slashes, underscores
+    return norm.replace(/[^\u0600-\u06FFa-zA-Z0-9\-_/]/g, '').trim().toUpperCase();
   }
 
   /**
@@ -85,10 +193,10 @@ export class DataNormalizer {
   static calculateCompletenessScore(data: Record<string, any>): number {
     let score = 0;
     const checks: { keys: string[]; weight: number }[] = [
-      { keys: ['title', 'name', 'product_name'], weight: 35 },
+      { keys: ['title', 'name', 'product_name', 'عنوان'], weight: 35 },
       { keys: ['price', 'cost', 'amount', 'قیمت'], weight: 25 },
       { keys: ['product_code', 'sku', 'code', 'کد'], weight: 15 },
-      { keys: ['description', 'desc', 'شرح', 'توضیحات'], weight: 15 },
+      { keys: ['description', 'desc', 'شرح', 'توضیحات', 'مشخصات'], weight: 15 },
       { keys: ['category', 'group', 'دسته'], weight: 10 },
     ];
 
@@ -109,7 +217,7 @@ export class DataNormalizer {
    * Generates a deterministic content fingerprint to detect duplicate records.
    */
   static generateFingerprint(data: Record<string, any>): string {
-    const primaryKeys = ['title', 'name', 'product_name', 'sku', 'code', 'product_code', 'url', 'source_url'];
+    const primaryKeys = ['title', 'name', 'product_name', 'عنوان', 'sku', 'code', 'product_code', 'url', 'source_url'];
     const parts: string[] = [];
 
     for (const key of primaryKeys) {
@@ -146,6 +254,14 @@ export class DataNormalizer {
           normalized[key] = this.parsePrice(val);
         } else if (lowerKey.includes('code') || lowerKey.includes('sku') || lowerKey.includes('کد')) {
           normalized[key] = this.normalizeProductCode(val);
+        } else if (
+          lowerKey.includes('desc') ||
+          lowerKey.includes('مشخصات') ||
+          lowerKey.includes('توضیحات') ||
+          lowerKey.includes('ویژگی')
+        ) {
+          // Multiline description / specifications
+          normalized[key] = this.normalizeText(val, { preserveLines: true });
         } else {
           normalized[key] = this.normalizeText(val);
         }

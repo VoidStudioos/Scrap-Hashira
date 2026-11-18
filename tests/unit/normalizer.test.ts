@@ -17,6 +17,41 @@ describe('DataNormalizer Engine', () => {
     expect(normalized).toBe('کتاب یاقوت');
   });
 
+  it('decodes HTML entities correctly', () => {
+    const raw = 'پکیج چیپ H&amp;G &nbsp; &quot;تست&quot; &diams; &#1606;';
+    const decoded = DataNormalizer.decodeHtmlEntities(raw);
+    expect(decoded).toContain('H&G');
+    expect(decoded).toContain('"تست"');
+    expect(decoded).toContain('♦');
+    expect(decoded).toContain('ن');
+    expect(decoded).not.toContain('&amp;');
+  });
+
+  it('prevents word fusing from unclosed HTML tags and adjacent blocks', () => {
+    const unclosedHtml = `
+      <h3>عنوان محصول</h3>
+      <p>پاراگراف اول
+      <p>پاراگراف دوم
+      <script>var x = 123;</script>
+    `;
+    const clean = DataNormalizer.cleanHtmlToText(unclosedHtml);
+    expect(clean).not.toContain('var x');
+    expect(clean).toContain('عنوان محصول');
+    expect(clean).toContain('پاراگراف اول');
+    expect(clean).toContain('پاراگراف دوم');
+    // Ensure words did NOT get glued together into 'محصولپاراگراف'
+    expect(clean).not.toContain('محصولپاراگراف');
+    expect(clean).not.toContain('اولپاراگراف');
+  });
+
+  it('preserves multi-line structure when preserveLines is enabled', () => {
+    const multiline = "خط اول\nخط دوم\n• قابلیت جدید";
+    const result = DataNormalizer.normalizeText(multiline, { preserveLines: true });
+    expect(result.split('\n').length).toBe(3);
+    expect(result).toContain('خط اول');
+    expect(result).toContain('خط دوم');
+  });
+
   it('parses Persian prices in Toman correctly', () => {
     const priceStr = '۸۵۰,۰۰۰ تومان';
     const parsed = DataNormalizer.parsePrice(priceStr);
@@ -38,7 +73,7 @@ describe('DataNormalizer Engine', () => {
 
   it('normalizes product SKUs and codes', () => {
     const messyCode = ' hp-brk-001 / a ';
-    expect(DataNormalizer.normalizeProductCode(messyCode)).toBe('HP-BRK-001A');
+    expect(DataNormalizer.normalizeProductCode(messyCode)).toBe('HP-BRK-001/A');
   });
 
   it('calculates record completeness score accurately', () => {

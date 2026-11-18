@@ -1,6 +1,7 @@
 // Multi-stage Automatic Data Detection Engine
 import type { ExtractedTable } from '../../types';
 import { PaginationController } from '../crawler/paginationController';
+import { DataNormalizer } from '../normalization/dataNormalizer';
 
 export interface DetectedField {
   name: string;
@@ -352,7 +353,7 @@ export class AutoDetector {
         cssSelector: titleSelector,
         xpathFallback: `.//${titleEl.tagName.toLowerCase()}`,
         attribute: 'text',
-        sampleValue: titleEl.textContent?.trim() || '',
+        sampleValue: DataNormalizer.decodeHtmlEntities(titleEl.textContent?.trim() || ''),
         confidence: 0.9,
       });
     }
@@ -366,7 +367,7 @@ export class AutoDetector {
         cssSelector: priceSelector,
         xpathFallback: `.//*[contains(@class, 'price')]`,
         attribute: 'text',
-        sampleValue: priceEl.textContent?.trim() || '',
+        sampleValue: DataNormalizer.decodeHtmlEntities(priceEl.textContent?.trim() || ''),
         confidence: 0.88,
       });
     }
@@ -439,7 +440,9 @@ export class AutoDetector {
           } else if (field.attribute === 'href') {
             record[field.name] = target.getAttribute('href') || '';
           } else {
-            record[field.name] = target.textContent?.trim() || '';
+            record[field.name] = (target.children && target.children.length > 0)
+              ? DataNormalizer.cleanHtmlToText(target.innerHTML)
+              : DataNormalizer.decodeHtmlEntities(target.textContent?.trim() || '');
           }
         } else {
           record[field.name] = '';
@@ -480,7 +483,7 @@ export class AutoDetector {
         cssSelector: this.deriveOptimalSelector(priceEl, '[class*="price"]'),
         xpathFallback: "//*[contains(@class, 'price')]",
         attribute: 'text',
-        sampleValue: priceEl.textContent?.trim() || '',
+        sampleValue: DataNormalizer.decodeHtmlEntities(priceEl.textContent?.trim() || ''),
         confidence: 0.9,
       });
     }
